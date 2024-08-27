@@ -11,7 +11,6 @@ import ShiTT.Eval
 
 import qualified Data.IntMap as I
 import qualified Data.Map as M 
-import Debug.Trace (trace)
 
 freshMeta :: Context -> IO Term 
 freshMeta ctx = do

@@ -1,7 +1,5 @@
 module ShiTT.Decl where 
 
-import qualified Data.Map as M 
-
 import ShiTT.Syntax
 import Control.Monad (join)
 

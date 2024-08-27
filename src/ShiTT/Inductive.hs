@@ -8,9 +8,8 @@ import qualified ShiTT.Check as C
 import ShiTT.Eval
 import qualified Data.Map as M 
 import ShiTT.Syntax
-import Debug.Trace
 import Control.Exception
-import Control.Monad (forM, when)
+import Control.Monad (forM)
 import Data.Maybe (fromJust)
 
 match :: Context -> [R.Pattern] -> Spine -> Maybe [Def]

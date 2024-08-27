@@ -1,13 +1,11 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Test where 
 import ShiTT.Syntax
 import ShiTT.Eval
 import ShiTT.Context
-import ShiTT.Check
-import qualified Data.Map as M
-import Debug.Trace (trace)
 
 import qualified ShiTT.Decl as R 
 import qualified ShiTT.Inductive as I

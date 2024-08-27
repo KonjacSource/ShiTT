@@ -6,13 +6,8 @@
 module ShiTT.Context where
 
 import ShiTT.Syntax
-import Control.Monad.State
-import qualified Data.IntMap as I
 import qualified Data.Map as M
-import ShiTT.Meta (MetaEntry)
-import Data.Maybe (fromJust)
 import Text.Megaparsec (SourcePos)
-import Common
 
 data NameOrigin = Inserted | Source 
   deriving (Eq, Show)
