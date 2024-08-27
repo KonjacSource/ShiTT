@@ -1,0 +1,141 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           shitt
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/shitt#readme>
+homepage:       https://github.com/githubuser/shitt#readme
+bug-reports:    https://github.com/githubuser/shitt/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2024 Author name here
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/shitt
+
+library
+  exposed-modules:
+      Common
+      ShiTT.Check
+      ShiTT.Context
+      ShiTT.Decl
+      ShiTT.Eval
+      ShiTT.Inductive
+      ShiTT.Meta
+      ShiTT.Syntax
+      Test
+  other-modules:
+      Paths_shitt
+  autogen-modules:
+      Paths_shitt
+  hs-source-dirs:
+      src
+  default-extensions:
+      DerivingVia
+      DeriveAnyClass
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      FlexibleContexts
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      OverloadedStrings
+      PatternSynonyms
+      StandaloneDeriving
+      TupleSections
+      ViewPatterns
+      OverloadedRecordDot
+      Strict
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-name-shadowing -Wno-missing-signatures -Wno-unused-do-bind -Wno-missing-export-lists -Wno-unused-matches -Wno-unrecognised-pragmas
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , exception-transformers
+    , megaparsec
+    , mtl
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+executable shitt-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_shitt
+  autogen-modules:
+      Paths_shitt
+  hs-source-dirs:
+      app
+  default-extensions:
+      DerivingVia
+      DeriveAnyClass
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      FlexibleContexts
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      OverloadedStrings
+      PatternSynonyms
+      StandaloneDeriving
+      TupleSections
+      ViewPatterns
+      OverloadedRecordDot
+      Strict
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-name-shadowing -Wno-missing-signatures -Wno-unused-do-bind -Wno-missing-export-lists -Wno-unused-matches -Wno-unrecognised-pragmas -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , exception-transformers
+    , megaparsec
+    , mtl
+    , shitt
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+test-suite shitt-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_shitt
+  autogen-modules:
+      Paths_shitt
+  hs-source-dirs:
+      test
+  default-extensions:
+      DerivingVia
+      DeriveAnyClass
+      DeriveFunctor
+      DeriveFoldable
+      DeriveTraversable
+      FlexibleContexts
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      OverloadedStrings
+      PatternSynonyms
+      StandaloneDeriving
+      TupleSections
+      ViewPatterns
+      OverloadedRecordDot
+      Strict
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-name-shadowing -Wno-missing-signatures -Wno-unused-do-bind -Wno-missing-export-lists -Wno-unused-matches -Wno-unrecognised-pragmas -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , exception-transformers
+    , megaparsec
+    , mtl
+    , shitt
+    , transformers
+    , vector
+  default-language: Haskell2010
