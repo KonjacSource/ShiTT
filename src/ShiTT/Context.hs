@@ -38,7 +38,8 @@ emptyCtx = Context
 infixl 4 <: 
 infix 5 :=, :~, :!, :=!
 
-data Def = Name := Value 
+-- | Use this when you don't need check type, only for evaluate.
+data Def = Name := Value
 data Bind = Name :~ (VType, NameOrigin) 
 
 instance Show Def where 
@@ -48,6 +49,7 @@ instance Show Bind where
   show (x :~ (t, Source)) = x ++ " : " ++ show t  
   show (x :~ (t, Inserted)) = x ++ " : " ++ show t ++ " (Inserted) "
 
+-- | Use this when you need to check type.
 data ElabBind = Name :! (VType, NameOrigin)
 data ElabDef  = (Name, VType) :=! Value
 
