@@ -27,6 +27,7 @@ ghci> run "Eaxmple.shitt"
 ## TODO
 
 - [ ] Coverage check
+- [ ] Operators
 - [ ] Termination check
 - [ ] Positive check for data types
 - [ ] Better pretty printer
