@@ -1,6 +1,6 @@
 # ShiTT
 
-ShiTT is a shitty language with shitty features.
+ShiTT is a shitty language.
 
 ```haskell
 data Id {A : U} : (_ _ : A) -> U where 
