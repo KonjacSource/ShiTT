@@ -2,7 +2,7 @@ data Id {A : U} : (_ _ : A) -> U where
 | refl : (x : A) -> ... x x
 
 fun uip {A : U} {x y : A} (p q : Id x y) : Id p q where 
-| (refl _) (refl x) = refl (refl _)
+| (refl _) (refl _) = refl _
 
 
 data N : U where  

@@ -17,7 +17,7 @@ ghci> import ShiTT.Parser
 ghci> run "Eaxmple.shitt"
 ```
 
-## Feature
+## Features
 
 - [x] Dependent types
 - [x] Evaluation by HOAS.
@@ -36,14 +36,14 @@ ghci> run "Eaxmple.shitt"
 - [ ] Code generator
 - [ ] Type classes
 
-# Example
+## Example
 
 ```haskell
 data Id {A : U} : (_ _ : A) -> U where 
 | refl : (x : A) -> ... x x
 
 fun uip {A : U} {x y : A} (p q : Id x y) : Id p q where 
-| (refl _) (refl x) = refl (refl x)
+| (refl _) (refl x) = refl (refl _)
 
 
 data N : U where  
@@ -58,7 +58,7 @@ data Vec (A : U) : (_ : N) -> U where
 | nil : ... zero 
 | cons : {n : N} (x : A) (xs : Vec A n) -> ... (succ n)
 
-fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) where 
+fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
 | nil w = w 
 | (cons x xs) w = cons x (append xs w)
 
