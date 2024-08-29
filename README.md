@@ -61,3 +61,4 @@ ghci> run "Eaxmple.shitt"
 - [ ] Module system
 - [ ] IO
 - [ ] Code generator
+- [ ] Type classes
