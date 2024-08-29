@@ -94,6 +94,19 @@ freshName ctx@(env -> env) = \case
                 | otherwise -> go x (n + 1)
         Just _ -> go x (n + 1)
 
+freshName' :: [Name] -> Name -> Name
+freshName' ls = \case
+  "_" -> "_"
+  x -> if x `elem` ls then 
+      go x 0 
+    else
+      x  
+  where
+    go x n = let x' = x ++ show n in
+      case x' `elem` ls of
+        False -> x'
+        True -> go x (n + 1)
+
 vApp :: Value -> Value -> Icit -> Value
 vApp t u i = case t of 
   VLam _ _ f -> f u 
@@ -147,6 +160,10 @@ pushDone fun@(funVal -> f) ctx sp = do
 
 pushCall :: Context -> Name -> Spine -> Value
 pushCall ctx name sp = pushFun ctx (VFunc name sp)
+
+
+refresh :: Context -> Value -> Value 
+refresh ctx = eval ctx . quote ctx 
 
 -------------------------------------
 

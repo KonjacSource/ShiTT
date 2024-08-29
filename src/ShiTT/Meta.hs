@@ -1,4 +1,4 @@
-module ShiTT.Meta where 
+module ShiTT.Meta where
 
 import qualified Data.IntMap as I
 import ShiTT.Syntax
@@ -6,7 +6,11 @@ import Data.IORef
 import System.IO.Unsafe
 
 data MetaEntry = Unsolved | Solved Value
-  deriving Show 
+  deriving Show
+
+solved :: MetaEntry -> Bool 
+solved Unsolved = False 
+solved _ = True
 
 runIO = unsafeDupablePerformIO
 
@@ -29,3 +33,8 @@ reset :: IO ()
 reset = do
   writeIORef nextMeta 0
   writeIORef mctx mempty
+
+allSolved :: IO Bool
+allSolved = do
+  ms <- readIORef mctx
+  pure $ all solved ms

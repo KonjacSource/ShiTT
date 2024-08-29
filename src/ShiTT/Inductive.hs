@@ -73,9 +73,6 @@ unionRes a b = CheckResult
   , typeLevelDef = a.typeLevelDef ++ b.typeLevelDef
   }
 
-refresh :: Context -> Value -> Value 
-refresh ctx = eval ctx . quote ctx 
-
 refreshSp :: Context -> Spine -> Spine 
 refreshSp ctx = \case 
   [] -> []
@@ -203,7 +200,7 @@ checkFun ctx fun = do
                { funName = fun.funName 
                , funPara = fun.funPara
                , funRetType = fun.funRetType
-               , funVal = \ _ _ -> Nothing -- so that we may check the type of the definning function
+               , funVal = \ _ _ -> Nothing -- A fake definition, so that we may check the type of the definning function
                }
   let ctx' =ctx { decls = insertFun preFun ctx.decls }
   val <- checkClauses ctx' fun fun.clauses 

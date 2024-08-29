@@ -1,6 +1,9 @@
 module Main (main) where
 
-import Lib
+import System.Environment(getArgs)
+import ShiTT.Parser 
 
 main :: IO ()
-main = someFunc
+main = do 
+  fp <- getArgs
+  run $ head fp

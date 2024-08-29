@@ -226,6 +226,12 @@ etest3 =
        (v "refl" # Hole)
   (v "refl3")
 
+etest4 :: Raw 
+etest4 = 
+  RLet "t" RU
+       (RPi "A" Impl RU $ RPi "x" Impl (v"A") $ v "Id" # v"x" # v"x")
+  (v "t")
+
 -- pattern match check test 
 -------------------------------
 -- checkP :: Context -> [Name] -> [R.Pattern] -> Telescope -> Either CheckError ([Name], Spine, CheckResult)
@@ -327,7 +333,6 @@ appendFun = R.Fun
       (R.Rhs $ v"cons" # pv"-x" # (v"append" # pv"-xs" # pv"-w"))
     ]
   }
-
 
 testContext2 :: Context 
 testContext2 = runIO $ do 

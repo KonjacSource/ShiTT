@@ -1,8 +1,10 @@
 {-# HLINT ignore #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE NondecreasingIndentation #-}
 module ShiTT.Parser where 
 
 import Control.Applicative hiding (many, some)
-import Control.Monad (void, guard, join)
+import Control.Monad (void, guard, when)
 import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
@@ -10,16 +12,19 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Control.Monad.Reader
 
 import qualified ShiTT.Decl as D
+import ShiTT.Decl (Pattern(PVar, PCon), Rhs(Rhs, NoMatchFor))
+
 import ShiTT.Context
 import ShiTT.Syntax
-import qualified Data.Map as M
 import Data.Char
 import ShiTT.Check
 import ShiTT.Eval
 import ShiTT.Inductive
-import Debug.Trace (trace)
-import Data.Maybe (fromJust)
 import Data.IORef
+import Control.Category ((>>>))
+import Control.Exception hiding (try)
+import Test (testContext2)
+import ShiTT.Meta (allSolved)
 
 
 type PatVars = [Name]
@@ -48,6 +53,27 @@ setCtx ctx' = do
   ctx_ref <- ask.!ctx 
   liftIO $ writeIORef ctx_ref ctx'
 
+addName :: Name -> Parser () 
+addName name = do 
+  ctx <- getCtx
+  setCtx $ ctx { decls = ctx.decls { definedNames = name : ctx.decls.definedNames } }
+
+addData :: Data -> Parser () 
+addData dat = do 
+  ctx <- getCtx 
+  setCtx $ ctx { decls = insertData dat ctx.decls }
+
+addFun :: Fun -> Parser () 
+addFun fun = do 
+  ctx <- getCtx 
+  setCtx $ ctx { decls = insertFun fun ctx.decls }
+
+isFresh :: Name -> Parser () 
+isFresh name = do 
+  names <- getCtx.!(decls >>> definedNames)
+  when (name `elem` names) do 
+    fail $ name ++ " already defined."
+  
 keepCtx :: Parser a -> Parser a 
 keepCtx p = do 
   ctx <- getCtx
@@ -77,7 +103,7 @@ patVar :: Name -> Term
 patVar name = Var $ '-' : name
 
 isPatVar :: Name -> PatVars -> Bool
-isPatVar name pvs = '-':name `elem` pvs
+isPatVar name pvs = name `elem` pvs
 
 
 inCtx :: Name -> Parser Bool 
@@ -87,7 +113,7 @@ inCtx name = do
 
 
 keywords :: [String]
-keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "nomatch"]
+keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch"]
 
 pIdent :: Parser Name
 pIdent = do
@@ -95,8 +121,8 @@ pIdent = do
   guard $ x `notElem` keywords
   x <$ sc
 
-parens p   = char '(' *> p <* char ')'
-braces p   = char '{' *> p <* char '}'
+parens p   = symbol "(" *> p <* symbol ")"
+braces p   = symbol "{" *> p <* symbol "}"
 arrow     = symbol "→" <|> symbol "->"
 pBind      = pIdent <|> symbol "_"
 
@@ -105,7 +131,8 @@ pVar = do
   name <- pIdent
   pvs <- ask.!pvs
   if isPatVar name pvs then 
-    pure $ RPVar $ '-' : name 
+    
+    pure $ RRef $ '-' : name 
   else pure $ RRef name
 
 pAtom :: Parser Raw 
@@ -113,14 +140,14 @@ pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ symbol "_"))
     <|> parens pTerm
 
 pTerm :: Parser Raw 
-pTerm = withPos (pLam <|> pLet <|> try pPi <|> pFunOrSpine)
+pTerm = withPos (pLam <|> pLet <|> try pPi <|> pFunOrSpine )
 
 withPos :: Parser Raw -> Parser Raw
 withPos p = SrcPos <$> getSourcePos <*> p
 
 pArg :: Parser (BindKind, Raw)
-pArg =  (try $ braces $ do {x <- pIdent; char '='; t <- pTerm; pure (Named x, t)})
-    <|> ((Unnamed Impl,) <$> (char '{' *> pTerm <* char '}'))
+pArg =  (try $ braces do {x <- pIdent; symbol "="; t <- pTerm; pure (Named x, t)})
+    <|> ((Unnamed Impl,) <$> (braces pTerm))
     <|> ((Unnamed Expl,) <$> pAtom)
 
 pSpine :: Parser Raw
@@ -133,23 +160,23 @@ pLamBinder :: Parser (Name, BindKind)
 pLamBinder =
       ((,Unnamed Expl) <$> pBind)
   <|> try ((,Unnamed Impl) <$> braces pBind)
-  <|> braces (do {x <- pIdent; char '='; y <- pBind; pure (y, Named x)})
+  <|> braces (do {x <- pIdent; symbol "="; y <- pBind; pure (y, Named x)})
 
 
 pLam :: Parser Raw
 pLam = do
-  char 'λ' <|> char '\\'
+  symbol "λ" <|> symbol "\\"
   xs <- some pLamBinder
-  char '.'
+  symbol "."
   t <- pTerm
   pure $ foldr (uncurry RLam) t xs
 
 pPiBinder :: Parser ([Name], Raw, Icit)
 pPiBinder =
       braces ((,,Impl) <$> some pBind
-                       <*> ((char ':' *> pTerm) <|> pure Hole))
+                       <*> ((symbol ":" *> pTerm) <|> pure Hole))
   <|> parens ((,,Expl) <$> some pBind
-                       <*> (char ':' *> pTerm))
+                       <*> (symbol ":" *> pTerm))
 pPi :: Parser Raw
 pPi = do
   dom <- some $ pPiBinder 
@@ -168,14 +195,35 @@ pLet :: Parser Raw
 pLet = do
   symbol "let" <* sc
   x <- pIdent
-  ann <- optional (char ':' *> pTerm)
-  char '='
+  ann <- optional (symbol ":" *> pTerm)
+  symbol "="
   t <- pTerm
   symbol ";"
   u <- pTerm
   pure $ RLet x (maybe Hole id ann) t u
 
--------------------
+----------------------------------------------------------------------------------------------------
+
+checkType :: Raw -> VType -> Parser Term
+checkType v t = do 
+  ctx <- getCtx 
+  res <- liftIO $ do 
+      (check ctx v t >>= pure . Right) 
+    `catch` \(Error ctx' elab_err) -> pure $ Left (ctx', elab_err) 
+  case res of 
+    Right ty -> pure ty 
+    Left (ctx', elab_err) -> fail $ show ctx' ++ "\n" ++ show (Error ctx' elab_err)
+
+inferType :: Raw -> Parser (Term, VType)
+inferType v = do 
+  ctx <- getCtx 
+  res <- liftIO $ do 
+      (infer ctx v >>= pure . Right) 
+    `catch` \(Error ctx' elab_err) -> pure $ Left (show elab_err) 
+  case res of 
+    Right ty -> pure ty 
+    Left err -> fail err
+
 
 -- | This will change the current context.
 pTelescope' :: Parser Telescope
@@ -185,7 +233,7 @@ pTelescope' = do
     Nothing -> pure []
     Just (names, ty_r, i) -> do 
       ctx <- getCtx 
-      ty_t <- liftIO $ check ctx ty_r VU -- TODO : use `catch`, better error message
+      ty_t <- checkType ty_r VU
       let ty_v = eval ctx ty_t
       let ctx' = ctx <: (map (:! (ty_v, Source)) names)
       setCtx ctx'
@@ -196,33 +244,341 @@ pTelescope' = do
 pTelescope :: Parser Telescope
 pTelescope = keepCtx pTelescope'
 
+-- data type
+-----------------
+
 {- 
-`data` Name Telescope `:` Telescope `->` `U` `where`
-many (
-`|` Name : Telescope `->` `...` (many Term)
-)
+Data ::= 
+
+  `data` Name Telescope' `:` Telescope `->` `U` `where`
+  many (
+  `|` Name : Telescope `->` `...` (many UnnamedArg) 
+  )
+
+Each constructor must give all indexes.
 -}
 
 -- | This will change the context:
---   - add the data name to ctx defined name 
---   - add the data's type message to ctx
---   - add the data parameters (not indexes) to ctx
-pDataHeader :: Parser (Name, Telescope, Telescope)
+--   - add the data name to ctx defined name.
+--   - add the data's type message to ctx (A fake definition, a Data object without Constructors).
+--   - add the data parameters (not indexes) to ctx.
+--   Then return the fake definition.
+pDataHeader :: Parser Data
 pDataHeader = do
-  _
+  data_name <- symbol "data" >> pIdent
+  isFresh data_name
+  data_para <- pTelescope' -- Adding data parameters to context.
+  data_ix <- symbol ":" >> pTelescope 
+  if null data_ix then 
+    symbol "U" >> symbol "where" 
+  else 
+    arrow >> symbol "U" >> symbol "where"
+  let fake_data = Data 
+        { dataName = data_name 
+        , dataPara = data_para 
+        , dataIx = data_ix 
+        , dataCons = []
+        }
+  addData fake_data
+  pure fake_data
 
+
+-- | No named argument.
+pUnnamedArg :: Parser (Raw, Icit)
+pUnnamedArg = ((, Impl) <$> (braces pTerm))
+          <|> ((, Expl) <$> pAtom)
+
+checkSpine :: [(Raw, Icit)] -> Telescope -> Parser [(Term, Icit)] 
+checkSpine xs ps = case (xs, ps) of 
+  ([], []) -> pure [] 
+  ((x, i):xs, (_, i', t):ps) 
+    | i == i' -> do 
+      x' <- checkType x t 
+      rest <- checkSpine xs ps
+      ctx <- getCtx
+      pure $ (x', i) : rest
+    | otherwise -> fail $ show $ IcitMismatch i i'
+  _ -> fail "Number of arguments unmatch, did you apply too many or too few arguments?" 
+
+pConstructor :: Data -> Parser Constructor
+pConstructor dat = do 
+  con_name <- bar >> pIdent 
+  isFresh con_name 
+  -- parse under the con_pare
+  ctx <- getCtx 
+  keepCtx do 
+    con_para <- symbol ":" >> pTelescope' 
+    if null con_para then 
+      symbol "..." 
+    else 
+      arrow >> symbol "..."
+    ret_ix_r <- many pUnnamedArg 
+    ret_ix_t <- checkSpine ret_ix_r dat.dataIx 
+    let ret_ix sp = -- sp : allImpl dataPara ++ conPara
+          let names = map (\(x,_,_) -> x) (dat.dataPara ++ con_para) 
+              ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
+          in  evalSp ctx' ret_ix_t
+    pure $ Constructor
+      { conName = con_name
+      , belongsTo = dat.dataName
+      , conPara = con_para
+      , retIx = ret_ix
+      }
+  where evalSp ctx = \case 
+          [] -> [] 
+          ((x, i):xs) -> (eval ctx x, i) : evalSp ctx xs
+
+-- | This does not change the context
 pData :: Parser Data
-pData = undefined
+pData = keepCtx do 
+  header <- pDataHeader 
+  cons <- many (pConstructor header)
+  pure $ header { dataCons = cons }
+
+-- function 
+-------------
+
+{-
+ExplPattern ::= Var | Con (many Pattern) | paren (ExplPattern)
+
+Pattern ::= `{`ExplPattern`}` | `{` Id = ExplPattern `}` | ExplPattern
+-}
+
+genPatVar :: Parser Name 
+genPatVar = do 
+  pvs <- ask.!pvs
+  pure $ freshName' pvs "_pat_var_"
+
+pExplPattern :: Parser (Pattern, PatVars) 
+pExplPattern = choice [parens pExplPattern, try var_pat, con_pat]
+  where 
+    con_pat = do -- Constructor Pattern
+      con_name <- pIdent
+      ctx <- getCtx
+      case lookupCon' con_name ctx of 
+        Nothing -> empty
+        Just (_, con) -> do 
+          if null con.conPara then 
+            pure (PCon con_name [] Expl, [])
+          else do
+            (args, names) <- pPatterns con.conPara
+            pure (PCon con_name args Expl, names)
+    var_pat = do -- Variable Pattern
+      x <- pBind
+      ctx <- getCtx 
+      guard $ x `notElem` ctx.decls.definedNames
+      x <- case x of 
+        "_" -> genPatVar
+        _ -> do 
+          pvs <- ask.!pvs 
+          when (x `elem` pvs) $ fail $ "Duplicate pattern variable: " ++ x
+          pure x
+      pure (PVar ('-':x) Expl, [x])
+
+pPattern :: Parser ((Pattern, Maybe Name), PatVars) 
+pPattern = choice 
+  [ try $ braces do
+      name <- pIdent <* symbol "="
+      (pat, pvs) <- pExplPattern 
+      pure ((D.setIcit Impl pat, Just name), pvs)
+  , braces do 
+      (pat, pvs) <- pExplPattern 
+      pure ((D.setIcit Impl pat, Nothing), pvs)
+  , do 
+      (pat, pvs) <- pExplPattern 
+      pure ((pat, Nothing), pvs)
+  ]
+
+-- | Parse patterns but do not insert any.
+manyPattern :: PatVars -> Parser ([(Pattern, Maybe Name)], PatVars)
+manyPattern pvs = withPV pvs do 
+  now <- (pPattern >>= pure . Just) <|> pure Nothing 
+  case now of 
+    Nothing -> pure ([], [])
+    Just (pat, pvs') -> do 
+      (pats, pvs'') <- manyPattern (pvs' ++ pvs)
+      pure (pat:pats, pvs' ++ pvs'')
+
+-- | This will insert the omitted patterns
+pPatterns :: Telescope -> Parser ([Pattern], PatVars)
+pPatterns ts = do 
+  (given_pat, pvs) <- manyPattern [] 
+  let newPat n = PVar ("-ins_pat_var_" ++ show n) Impl
+  let insertUntilName n ts name = case ts of 
+        [] -> fail . show $ NoNamedImplicitArg name
+        ts@((x, Impl, _):_) | x == name -> pure ([], ts)
+        (_: rest) -> do
+          (ps, rest') <- insertUntilName (n + 1) rest name
+          pure (newPat n : ps, rest')
+  let go :: Int -> Telescope -> [(Pattern, Maybe Name)] -> Parser [Pattern]
+      go n ts ps = case (ts, ps) of 
+        ([], []) -> pure []
+        ((x,i,t):ts, (p,Nothing):ps) | i == D.icit p -> do
+          rest <- go (n+1) ts ps 
+          pure $ p : rest
+        ((x,Impl,t):ts, ps@((p, Nothing):_)) | D.icit p == Expl -> do -- Insert Implict Pattern 
+          rest <- go (n+1) ts ps 
+          pure $ newPat n : rest
+        (ts@((x,Impl,t):ts'), ps@((p, Just x'):ps')) -- Named Pattern
+          | x == x' -> do 
+              rest <- go (n+1) ts' ps'
+              pure $ p : rest
+          | otherwise -> do 
+              (pats, rest_ts) <- insertUntilName n ts x'
+              rest <- go (n + length pats) rest_ts ps
+              pure $ pats ++ rest
+        _ -> fail $ "Unable to parse patterns: " ++ show ts ++ " | " ++ show ps
+  ps <- go 0 ts given_pat
+  pure (ps, pvs)
+
+{-
+Function ::= 
+
+  `fun` Name Telescope `:` Term `where`
+  many (
+  `|` Patterns Rhs 
+  )
+
+-- Note that we check Rhs under the pattern variables given by patterns.
+
+Rhs ::= `nomatch` Id | `=` Term
+-}
+
+pRhs :: Parser Rhs 
+pRhs = do 
+  choice 
+    [ do 
+        x <- symbol "nomatch" >> pIdent
+        pvs <- ask.!pvs
+        guard $ x `elem` pvs 
+        pure (NoMatchFor ('-':x))
+    , do 
+        rhs <- symbol "=" >> pTerm 
+        pure (Rhs rhs)
+    ]
+
+pClause :: Telescope -> Parser D.Clause 
+pClause ts = do 
+  (pats, pvs) <- bar >> pPatterns ts
+  rhs <- withPV pvs pRhs
+  pure $ D.Clause
+    { D.patterns = pats 
+    , D.clauseRhs = rhs 
+    }
+
+-- | Parse the function header, return a fake definition
+pFunHeader :: Parser D.Fun 
+pFunHeader = keepCtx do 
+  fun_name <- (symbol "fun" <|> symbol "def") >> pIdent 
+  isFresh fun_name
+  fun_para <- pTelescope' <* symbol ":" 
+  ret_ty_r <- pTerm <* (symbol "where" <|> pure "")
+
+  ret_ty_t <- checkType ret_ty_r VU 
+
+  ctx <- getCtx
+  let ret_ty_v sp = -- sp : fun_para
+        let names = map (\(x,_,_) -> x) fun_para
+            ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
+        in  eval ctx' ret_ty_t
+  pure $ D.Fun
+    { D.funName = fun_name 
+    , D.funPara = fun_para
+    , D.funRetType = ret_ty_v
+    , D.clauses = []
+    }
+
+pFun :: Parser D.Fun 
+pFun = do 
+  preFun <- pFunHeader
+  clauses <- many (pClause (D.funPara preFun))
+  pure $ preFun { D.clauses = clauses }
+
+---
+
+printLn :: Show t => t -> Parser ()
+printLn = liftIO . putStrLn . show
+
+putLn :: String -> Parser ()
+putLn = liftIO . putStrLn
+
+pTopLevel :: Parser () 
+pTopLevel = choice [data_type, function, command] where 
+
+  data_type = do 
+    dat <- pData
+    addData dat
+  
+  function = do 
+    fun <- pFun 
+    ctx <- getCtx
+    checked_fun <- liftIO $ checkFun ctx fun
+    addFun checked_fun
+
+  command = symbol "#" >> do
+    cmd <- pIdent
+    case cmd of 
+      "infer" -> do 
+        term <- pTerm 
+        (_, t) <- inferType term 
+        printLn t
+      "eval" -> do 
+        term <- pTerm 
+        (t, _) <- inferType term 
+        ctx <- getCtx
+        printLn . refresh ctx $ eval ctx t
+      _ -> fail $ "Unknown command " ++ cmd
+    
+
+pProg :: Parser Context 
+pProg = sc >> do
+  many pTopLevel
+  all_solved <- liftIO allSolved
+  if all_solved then 
+    putLn "All Done."
+  else 
+    putLn "Warning: Unsolved meta variables"
+  ctx <- getCtx
+  pure ctx
 
 --- 
 
--- emptyCfg :: IO Config 
--- emptyCfg = do 
---   _
+emptyCfg :: IO Config 
+emptyCfg = do 
+  ref <- newIORef emptyCtx 
+  pure Config
+    { ctx = ref 
+    , pvs = []
+    }
 
--- runParser :: Parser a -> String -> String -> IO (Either String a)
--- runParser p fp src = do 
---   let m = runParserT (p <* eof) fp src in 
---   case fst r of 
---     Left e -> Left $ errorBundlePretty e 
---     Right a -> Right a 
+-- for test
+testCfg :: IO Config 
+testCfg = do 
+  ref <- newIORef testContext2 
+  pure Config
+    { ctx = ref 
+    , pvs = ["t"]
+    }
+
+fromFile :: Parser a -> String -> IO a
+fromFile p fp = do
+  src <- readFile fp 
+  cfg <- emptyCfg
+  m <- runReaderT (runParserT (p <* eof) fp src) cfg
+  ctx <- readIORef cfg.ctx
+  case m of 
+    Left err -> error $ errorBundlePretty err
+    Right a -> pure a
+
+fromFileTest :: Parser a -> String -> IO a
+fromFileTest p fp = do
+  src <- readFile fp 
+  cfg <- testCfg
+  m <- runReaderT (runParserT (p <* eof) fp src) cfg
+  ctx <- readIORef cfg.ctx
+  case m of 
+    Left err -> error $ errorBundlePretty err
+    Right a -> pure a
+
+run :: String -> IO () 
+run fp = fromFile pProg fp >> pure ()

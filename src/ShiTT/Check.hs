@@ -11,6 +11,7 @@ import ShiTT.Eval
 
 import qualified Data.IntMap as I
 import qualified Data.Map as M 
+import Text.Megaparsec (sourcePosPretty)
 
 freshMeta :: Context -> IO Term 
 freshMeta ctx = do
@@ -54,7 +55,10 @@ solve ctx m sp rhs = do
   name_map <- invert sp 
   let rhs_term = quote ctx rhs
   if m `notElem` allMeta rhs_term then do -- ocurrence check
-    let solution = eval (ctx {env = M.empty} <: name_map) $ lams (map snd sp) rhs_term
+    let solution = 
+          eval (ctx {env = M.empty} <: name_map) $ 
+            lams (map snd sp) $ 
+              quote ctx $ eval (ctx {env = M.empty} <: name_map) rhs_term
     modifyIORef' mctx $ I.insert m (Solved solution)
   else 
     throwIO UnifyError
@@ -113,14 +117,17 @@ data ElabError
 
 instance Show ElabError where 
   show = \case 
-    NameNotInScope name ->  "unknow name: " ++ name 
-    Can'tUnify v w -> "can't unify (" ++ show v ++ ") with (" ++ show w ++ ")"
-    InferNamedLam -> "i can't infer the giving lambda"
-    NoNamedImplicitArg name -> "there is no such implict name: " ++ name 
-    IcitMismatch i i' -> "expecting " ++ show i' ++ ", got " ++ show i
+    NameNotInScope name ->  "Unknow name: " ++ name 
+    Can'tUnify v w -> "Can't unify " ++ show v ++ " with " ++ show w ++ ""
+    InferNamedLam -> "Can't infer the giving lambda"
+    NoNamedImplicitArg name -> "There is no such implict name: " ++ name 
+    IcitMismatch i i' -> "Expecting " ++ show i' ++ ", got " ++ show i
 
 data Error = Error Context ElabError
-  deriving (Show, Exception)
+  deriving Exception
+
+instance Show Error where 
+  show (Error ctx e) = "Error (" ++ show (sourcePosPretty <$> ctx.pos) ++ "): " ++ show e
 
 type Anno = (Term, VType)
 

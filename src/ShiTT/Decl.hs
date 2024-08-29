@@ -23,7 +23,7 @@ type InaccId = Int
 
 data Pattern 
   = PVar Name Icit 
-  | PCon Name [Pattern] Icit 
+  | PCon Name [Pattern] Icit -- TODO: Change to `PCon Constructor [Pattern] Icit`
   | PInacc InaccId Icit
 
 icit :: Pattern -> Icit
@@ -32,6 +32,12 @@ icit = \case
   PCon _ _ i -> i 
   PInacc _ i -> i
 
+setIcit :: Icit -> Pattern -> Pattern 
+setIcit i = \case 
+  PVar x _ -> PVar x i 
+  PCon x ps _ -> PCon x ps i 
+  PInacc x _ -> PInacc x i
+
 instance Show Pattern where 
   show = pp True where 
     paren _ Impl s = '{' : s ++ "}"
@@ -39,7 +45,9 @@ instance Show Pattern where
     paren _ _ s = s 
     pp top = \case 
       PVar n i -> paren True i n
-      PCon n ps i -> paren top i (n ++ join (map ((' ' :) . show) ps))
+      PCon n ps i 
+        | null ps -> paren True i n
+        | otherwise -> paren top i (n ++ join (map ((' ' :) . pp False) ps))
       PInacc n i -> paren True i ('~':show n) 
 
 
@@ -53,6 +61,7 @@ data Fun = Fun
 data Clause = Clause
   { patterns :: [Pattern]
   , clauseRhs :: Rhs   
-  }
+  } deriving Show
 
 data Rhs = Rhs Raw | NoMatchFor Name 
+  deriving Show
