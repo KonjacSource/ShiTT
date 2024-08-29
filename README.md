@@ -34,7 +34,7 @@ fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) where
 
 ```
 > stack build 
-> shitt Example.shitt
+> ./shitt Example.shitt
 ```
 
 or
