@@ -167,6 +167,8 @@ refresh ctx = eval ctx . quote ctx
 
 -------------------------------------
 
+-- stackoverflow : subst ("A" := VPatVar "-A" [])  (VPi "_" Expl (VVar "A") (\_ -> VU))
+-- TODO : Value ---quote--> Term ---subst--> Term ---eval---> Value
 subst :: Def -> Value -> Value 
 subst d@(x := v) t = case t of 
   VRig n sp | n == x -> vAppSp v $ substSp d sp 
@@ -178,7 +180,7 @@ subst d@(x := v) t = case t of
   VCon n sp -> VCon n $ substSp d sp 
   VFlex m sp -> VFlex m $ substSp d sp
   VFunc m sp -> VFunc m $ substSp d sp 
-  VPi x' i a b -> VPi x' i (subst d t) (\v -> subst d (b v))
+  VPi x' i a b -> VPi x' i (subst d t) (\v -> subst d (b v)) -- This is so wrong
   VU -> VU
 
 substSp :: Def -> Spine -> Spine
@@ -200,12 +202,37 @@ exe :: (Def -> a -> a) -> [Def] -> a -> a
 exe sub [] a = a 
 exe sub (b:bs) a = sub b (exe sub bs a)
 
-getFunType :: Fun -> VType 
-getFunType fun = go [] fun.funPara where 
+getFunType :: Context -> Fun -> VType 
+getFunType ctx fun = go [] fun.funPara where 
   go args [] = fun.funRetType args  
-  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope (x := v) xs))
+  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope' ctx [x := v] xs))
 
-getDataType :: Data -> VType 
-getDataType dat = go [] (dat.dataPara ++ dat.dataIx) where 
+
+getDataType :: Context -> Data -> VType 
+getDataType ctx dat = go [] (dat.dataPara ++ dat.dataIx) where 
   go args [] = VU
-  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope (x := v) xs))
+  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope' ctx [x := v] xs))
+
+
+-- The ctx must have the new values
+subst' :: Context -> [Def] -> Value -> Value 
+subst' ctx defs v = refresh (ctx <: defs) v
+
+substSp' :: Context -> [Def] -> Spine -> Spine
+substSp' ctx d = \case 
+  [] -> []
+  (v, i):rest -> (subst' ctx d v, i) : substSp' ctx d rest 
+
+substTelescope' :: Context -> [Def] -> Telescope -> Telescope
+substTelescope' ctx ds = \case 
+  [] -> []
+  (x,i,t):rest -> (x,i,subst' ctx ds t) : substTelescope' (ctx <: x :! (t, Source)) (rm x ds) rest
+  where rm x [] = []
+        rm x (d@(x':=_):xs) 
+          | x == x' = rm x xs 
+          | otherwise = d : rm x xs
+
+substDefs' :: Context -> [Def] -> [Def] -> [Def]
+substDefs' ctx ds = \case 
+  [] -> [] 
+  (x := v):rest -> (x := subst' ctx ds v) : substDefs' ctx ds rest

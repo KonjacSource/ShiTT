@@ -1,5 +1,6 @@
 {-# HLINT ignore #-}
 {-# LANGUAGE NondecreasingIndentation #-}
+{-# LANGUAGE BlockArguments #-}
 module ShiTT.Inductive where 
 
 import qualified ShiTT.Decl as R 
@@ -65,10 +66,10 @@ data CheckResult = CheckResult
   , typeLevelDef :: [Def]
   } deriving Show 
 
-unionRes :: CheckResult -> CheckResult -> CheckResult
-unionRes a b = CheckResult
+unionRes :: Context -> CheckResult -> CheckResult -> CheckResult
+unionRes ctx a b = CheckResult
   { resultCtx = a.resultCtx ++ b.resultCtx
-  , extraDef = updateDef a.extraDef b.extraDef
+  , extraDef = updateDef ctx a.extraDef b.extraDef
   , freevarsRhs = a.freevarsRhs ++ b.freevarsRhs
   , typeLevelDef = a.typeLevelDef ++ b.typeLevelDef
   }
@@ -99,11 +100,11 @@ conParaType :: Context -> Constructor -> Data -> Spine -> Telescope
 conParaType ctx con dat dat_para = 
   let dat_para' = dat.dataPara 
       sub = map (\((x,_,_), (v,_)) -> x := v) $ zip dat_para' dat_para
-      con_para = exe substTelescope sub con.conPara
-  in refreshTelescope ctx con_para
+  in substTelescope' ctx sub con.conPara
 
-updateDef :: [Def] -> [Def] -> [Def]
-updateDef a b = exe substDefs a b ++ exe substDefs b a
+-- Need test
+updateDef :: Context -> [Def] -> [Def] -> [Def]
+updateDef ctx a b = substDefs' ctx a b ++ substDefs' ctx b a
 
 -- | Check (con ps) agasint type t.
 checkCon :: Context -> [Name] -> (Constructor, [R.Pattern]) -> (Data, Spine) -> Either CheckError ([Name], Value, CheckResult)
@@ -117,7 +118,7 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
   defs <- unifySp (listOrder ord') ctx [] ret_ix dat_ix
   pure ( ord'
        , VCon con.conName (allImpl dat_para ++ psv)
-       , res { extraDef = updateDef defs res.extraDef, typeLevelDef = [] } ) -- this is a sub check, so we dont need the type level def
+       , res { extraDef = updateDef ctx defs res.extraDef, typeLevelDef = [] } ) -- this is a sub check, so we dont need the type level def
   where allImpl = \case 
           [] -> []
           ((v,_) : rest) -> (v, Impl) : allImpl rest
@@ -132,7 +133,7 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
 --   } 
 checkP :: Context -> [Name] -> [R.Pattern] -> Telescope -> Either CheckError ([Name], Spine, CheckResult)
 checkP ctx ord [] [] = pure $ (ord, [], CheckResult [] [] [] [])
-checkP ctx ord (p:ps) ((x', i', t'):ts) 
+checkP ctx ord (p:ps) ((x', i', t'): ts) 
   | R.icit p == i' = 
     let t = refresh ctx t' in
     case p of 
@@ -143,9 +144,9 @@ checkP ctx ord (p:ps) ((x', i', t'):ts)
                   , freevarsRhs  = [x := VPatVar x []]
                   , typeLevelDef = [x' := VPatVar x []]
                   } 
-        let ts' = exe substTelescope now.typeLevelDef ts
+        let ts' = substTelescope' ctx now.typeLevelDef ts
         (ord', psv, rest) <- checkP (ctx <: x := VPatVar x []) (x : ord) ps ts'
-        pure (ord', (VPatVar x [], i) : psv, unionRes now rest)
+        pure (ord', (VPatVar x [], i) : psv, unionRes ctx now rest)
       
       R.PCon con_name con_args i -> 
         case t of 
@@ -154,9 +155,9 @@ checkP ctx ord (p:ps) ((x', i', t'):ts)
             con <- lookupCon con_name dat                   ^? (PMErr $ UnknownConNameOfData con_name dat)
             (ord', v, now) <- checkCon ctx ord (con, con_args) (dat, dat_args)
             let now' = now {typeLevelDef = (x' := v) : now.typeLevelDef}
-            let ts' = exe substTelescope (now'.typeLevelDef ++ now'.extraDef) ts
+            let ts' = substTelescope' ctx (now'.typeLevelDef ++ now'.extraDef) ts
             (ord'', psv, rest) <- checkP (ctx <: now'.resultCtx) ord' ps ts' 
-            pure (ord'', (v, i) : psv, unionRes now' rest)
+            pure (ord'', (v, i) : psv, unionRes ctx now' rest)
 
           _ -> Left . PMErr $ TheGivenTypeIsNotAData t
 
@@ -167,8 +168,8 @@ checkP ctx ord _ _ = Left . PMErr $ NumOfPatErr
 checkClause :: Context -> R.Fun -> R.Clause -> IO (Maybe Term)
 checkClause ctx fun (R.Clause pat rhs) = case rhs of
   R.NoMatchFor x -> undefined >> pure Nothing -- TODO: Check absurd pattern
-  R.Rhs t -> do 
-    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara 
+  R.Rhs t -> do
+    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
     let rhs_ctx = ctx  <: res.resultCtx <: res.freevarsRhs <: res.extraDef
     let expect_type = refresh rhs_ctx $ fun.funRetType sp 
     rhs <- C.check rhs_ctx t expect_type
@@ -242,7 +243,7 @@ unifySp ord ctx fore s1 s2 = case (s1, s2) of
   ([], []) -> pure fore
   ((v, i):vs, (w, i'):ws) | i == i' -> do 
     s <- unify1 ord ctx fore v w
-    let vs' = exe substSp s vs 
-    let ws' = exe substSp s ws
+    let vs' = substSp' ctx s vs 
+    let ws' = substSp' ctx s ws
     unifySp ord ctx s vs' ws'
   _ -> error "impossible"

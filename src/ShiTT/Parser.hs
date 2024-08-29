@@ -25,6 +25,7 @@ import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
 import ShiTT.Meta (allSolved)
+import Debug.Trace (trace)
 
 
 type PatVars = [Name]
@@ -473,9 +474,7 @@ pFunHeader = keepCtx do
   isFresh fun_name
   fun_para <- pTelescope' <* symbol ":" 
   ret_ty_r <- pTerm <* (symbol "where" <|> pure "")
-
   ret_ty_t <- checkType ret_ty_r VU 
-
   ctx <- getCtx
   let ret_ty_v sp = -- sp : fun_para
         let names = map (\(x,_,_) -> x) fun_para
@@ -574,7 +573,7 @@ fromFileTest :: Parser a -> String -> IO a
 fromFileTest p fp = do
   src <- readFile fp 
   cfg <- testCfg
-  m <- runReaderT (runParserT (p <* eof) fp src) cfg
+  m <- runReaderT (runParserT p fp src) cfg
   ctx <- readIORef cfg.ctx
   case m of 
     Left err -> error $ errorBundlePretty err

@@ -2,7 +2,7 @@ data Id {A : U} : (_ _ : A) -> U where
 | refl : (x : A) -> ... x x
 
 fun uip {A : U} {x y : A} (p q : Id x y) : Id p q where 
-| (refl _) (refl _) = refl _
+| (refl _) (refl x) = refl (refl _)
 
 
 data N : U where  
@@ -17,10 +17,13 @@ data Vec (A : U) : (_ : N) -> U where
 | nil : ... zero 
 | cons : {n : N} (x : A) (xs : Vec A n) -> ... (succ n)
 
-fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) where 
+fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
 | nil w = w 
 | (cons x xs) w = cons x (append xs w)
 
+fun cong {A B : U} {x y : A} (f : A -> B) (p : Id x y) : Id (f x) (f y) where 
+| f (refl x) = refl _
+
+
 #eval append (cons zero (cons (succ zero) nil)) nil
 #infer Vec
-
