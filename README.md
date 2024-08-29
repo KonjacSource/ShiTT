@@ -2,7 +2,7 @@
 
 ShiTT is a shitty language with shitty features.
 
-```lean 
+```haskell
 data Id {A : U} : (_ _ : A) -> U where 
 | refl : (x : A) -> ... x x
 
