@@ -44,3 +44,20 @@ or
 ghci> import ShiTT.Parser 
 ghci> run "Eaxmple.shitt"
 ```
+
+## Feature
+
+- [x] Dependent types
+- [x] Evaluation by HOAS.
+- [x] Meta variables and implict arugments
+- [x] Pattern match
+
+## TODO
+
+- [ ] Coverage check
+- [ ] Termination check
+- [ ] Positive check for data types
+- [ ] Better pretty printer
+- [ ] Module system
+- [ ] IO
+- [ ] Code generator
