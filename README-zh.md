@@ -1,4 +1,4 @@
-# ShiTT
+# ShiTT(屎TT)
 
 [English](./README.md) | [中文]()
 
