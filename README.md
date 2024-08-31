@@ -1,5 +1,7 @@
 # ShiTT
 
+[English]() | [中文](./README-zh.md)
+
 ShiTT is a shitty language.
 
 ## Usage

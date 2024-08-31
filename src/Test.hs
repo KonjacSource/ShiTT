@@ -11,6 +11,7 @@ import qualified ShiTT.Decl as R
 import qualified ShiTT.Inductive as I
 import ShiTT.Decl (Pattern(PVar, PCon))
 import ShiTT.Meta
+import ShiTT.Inductive (splitCase)
 
 natData :: Data
 natData = Data 
@@ -374,3 +375,10 @@ appendTest2 = v "append" # mkVec (map mkNum [0]) # mkVec (map mkNum [4])
 --                         `eApp` Var "n") 
 --       _ -> Nothing 
 --   }
+
+-- cons
+t1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VCon "succ" [(VVar "m", Expl)], Expl)])
+-- []
+t2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
+-- nil
+t3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])

@@ -12,6 +12,7 @@ import ShiTT.Syntax
 import Control.Exception
 import Control.Monad (forM)
 import Data.Maybe (fromJust)
+import Debug.Trace (trace)
 
 match :: Context -> [R.Pattern] -> Spine -> Maybe [Def]
 match ctx [] [] = Just [] 
@@ -128,7 +129,7 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
           ((v,_) : rest) -> (v, Impl) : allImpl rest
   
 
--- | checkP ctx [(succ n), (cons x xs)] [(m : N), (ls : List N)] ==> 
+-- | checkP ctx [] [(succ n), (cons x xs)] [(m : N), (ls : List N)] ==> 
 --   [xs, x, n] ,
 --   [(succ n), (cons x xs)] ,
 --   CheckResult 
@@ -257,30 +258,43 @@ unifySp ord ctx fore s1 s2 = case (s1, s2) of
 -- Coverage Check 
 ---------------------
 
-availdPattern :: Context -> (Name, Icit, VType) -> R.Pattern -> Maybe (Spine, CheckResult)
+availdPattern :: Context -> (Name, Icit, VType) -> R.Pattern -> Maybe ((Value, Icit), CheckResult)
 availdPattern ctx t p = case checkP ctx [] [p] [t] of 
-  Right (_, s, r) -> pure (s, r) 
+  Right (_, s, r) -> pure (head s, r) 
   _ -> Nothing 
   
--- | Generate pattern of given constructor, adding used name to ctx
-mkConPat :: Context -> Data -> Constructor -> Icit -> (R.Pattern, (Value, Icit) , Context)  
-mkConPat ctx dat con i = (R.PCon con.conName pargs i, (VCon con.conName args, i), ctx') where 
+-- | Generate pattern of given constructor, return used names (in pattern)
+mkConPat :: Context -> Data -> Constructor -> Icit -> R.Pattern
+mkConPat ctx dat con i = (R.PCon con.conName pargs i) where 
   ixls xs = go 0 xs where 
     go _ [] = [] 
     go n (x:xs) = (x,n) : go (n+1) xs
-  data_para_names = map (\((x,_,_),n) -> x ++ "'" ++ show n) $ ixls dat.dataPara
   names = map (\(x, n) -> freshName ctx (x ++ show n)) (ixls (map (\(x,_,_) -> x) con.conPara))
   pargs = map (\(n, (_,i,_)) -> R.PVar n i) $ zip names con.conPara
-  args = map (\(name, (_,i,t)) -> (VVar name, i)) $ zip (data_para_names ++ names) (dat.dataPara ++ con.conPara)
-  ctx' = ctx <: map freeVar names <: map freeVar data_para_names
 
-
-splitCase :: Context -> (VType, Icit) -> [(Value, Icit)]
-splitCase ctx (force -> t, icit) = case t of 
+-- | Give the expected type, generate all the possible patterns.
+splitCase :: Context -> (Name, Icit, VType) -> [(R.Pattern, (Value, Icit), CheckResult)]
+splitCase ctx (x, icit, force -> t) = case t of 
   t@(VCon data_name data_args) ->
     case M.lookup data_name ctx.decls.allDataDecls of 
-      Nothing  -> let x = genName in [(VVar x, icit)]
-      Just dat -> undefined
-  _ -> let x = genName in [(VVar x, icit)]
+      Nothing  -> only_var
+      Just dat -> do 
+
+        con <- dat.dataCons
+        let conP = mkConPat ctx dat con icit
+        case availdPattern ctx (x, icit, t) conP of
+          Nothing -> [] 
+          Just (v, res) -> pure (conP, v, res)
+
+  _ -> only_var
   where 
-    genName = freshName ctx "~pat"
+    pat_name = freshName ctx "~pat'"
+    only_var = pure $ let (b, c) = fromJust $ availdPattern ctx (x, Impl, t) (R.PVar pat_name icit) in 
+      (R.PVar pat_name icit, b, c)
+
+data CoverageError = AbsurbPattern -- Recoveriable
+                   | Exhausted Name Spine -- Coverage check failed
+  deriving (Show, Exception)
+  
+coverageCheck :: Context -> R.Fun -> [R.Clause] -> IO ()
+coverageCheck ctx fun (map R.patterns -> pss) = undefined
