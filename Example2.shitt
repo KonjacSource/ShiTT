@@ -1,0 +1,46 @@
+data Id (A: U) : (auto auto: A) -> U where 
+| refl : (x : A) -> ... x x
+
+data N : U where 
+| zero : ... 
+| succ : (pre : N) -> ... 
+
+fun add (m n : N) : N where 
+| zero n = n
+| (succ m) n = succ (add m n)
+
+data Vec (A : U) : (auto : N) -> U where 
+| nil : ... zero 
+| cons : (n : N) (x : A) (xs : Vec A n) -> ... (succ n)
+
+fun append (A : U) (m n : N) (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
+| auto auto auto nil w = w 
+| auto auto auto (cons auto x xs) w = cons auto x (append auto auto auto xs w)
+
+#eval append auto auto auto (cons auto zero (cons auto (succ zero) nil)) nil
+
+
+fun sym (A : U) (x y : A) (p : Id auto x y) : Id auto y x where 
+| auto auto auto (refl auto) = refl auto
+
+fun trans (A : U) (x y z : A) (auto : Id auto x y) (auto : Id auto y z) : Id auto x z where 
+| auto auto auto auto (refl auto) (refl auto) = refl auto 
+
+fun cong (A B : U) (x y : A) (f : A -> B) (p : Id auto x y) : Id auto (f x) (f y) where 
+| auto auto auto auto f (refl x) = refl auto
+
+fun addAssoc (x y z : N) : Id auto (add (add x y) z) (add x (add y z)) where 
+| zero y z = refl auto
+| (succ x) y z = cong auto auto auto auto succ (addAssoc x y z) 
+
+fun addIdR (x : N) : Id auto (add x zero) x where 
+| zero = refl auto 
+| (succ x) = cong auto auto auto auto succ (addIdR x)
+
+fun addSucc (x y : N) : Id auto (add (succ x) y) (add x (succ y)) where 
+| zero y = refl auto 
+| (succ x) y = cong auto auto auto auto succ (addSucc x y)
+
+fun addComm (x y : N) : Id auto (add x y) (add y x) where 
+| zero y = sym auto auto auto (addIdR auto)
+| (succ x) y = trans auto auto auto auto (cong auto auto auto auto succ (addComm x y)) (addSucc y x)

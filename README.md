@@ -21,16 +21,17 @@ ghci> run "Eaxmple.shitt"
 
 - [x] Dependent types
 - [x] Evaluation by HOAS.
-- [x] Meta variables and implict arugments
-- [x] Pattern match
+- [x] Meta variables and implict arugments (pattern unification)
+- [x] Pattern match and data type
 
 ## TODO
 
-- [ ] Coverage check
+- [ ] Coverage checking
 - [ ] Operators
-- [ ] Termination check
-- [ ] Positive check for data types
-- [ ] Better pretty printer
+- [ ] Termination checking
+- [ ] Positive checking for data types
+- [ ] Better pretty printing
+- [ ] Better error reporting
 - [ ] Module system
 - [ ] IO
 - [ ] Code generator
@@ -60,7 +61,7 @@ data Vec (A : U) : (_ : N) -> U where
 #infer Vec
 
 def append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
-| nil w = w 
+| nil w = w
 | (cons x xs) w = cons x (append xs w)
 
 #eval append (cons zero (cons (succ zero) nil)) nil
@@ -91,4 +92,6 @@ def addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where
 def addComm (x y : N) : Id (add x y) (add y x) where 
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
+
+
 ```

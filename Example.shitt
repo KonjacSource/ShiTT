@@ -1,8 +1,10 @@
-data Id {A : U} : (_ _ : A) -> U where 
-| refl : (x : A) -> ... x x
+data Id {A : U} : (x y : A) -> U where 
+| refl : (t : A) -> ... t t 
 
-fun uip {A : U} {x y : A} (p q : Id x y) : Id p q where 
-| (refl _) (refl x) = refl (refl _)
+#infer Id
+
+fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
+| (refl _) (refl _) = refl (refl _)
 
 data N : U where  
 | zero : ...  
@@ -16,13 +18,13 @@ data Vec (A : U) : (_ : N) -> U where
 | nil : ... zero 
 | cons : {n : N} (x : A) (xs : Vec A n) -> ... (succ n)
 
-#infer Vec
+-- #infer Vec
 
 fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
 | nil w = w 
 | (cons x xs) w = cons x (append xs w)
 
-#eval append (cons zero (cons (succ zero) nil)) nil
+-- #eval append (cons zero (cons (succ zero) nil)) nil
 
 -- Some theorems.
 

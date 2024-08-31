@@ -114,7 +114,7 @@ inCtx name = do
 
 
 keywords :: [String]
-keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch"]
+keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto"]
 
 pIdent :: Parser Name
 pIdent = do
@@ -125,7 +125,7 @@ pIdent = do
 parens p   = symbol "(" *> p <* symbol ")"
 braces p   = symbol "{" *> p <* symbol "}"
 arrow     = symbol "→" <|> symbol "->"
-pBind      = pIdent <|> symbol "_"
+pBind      = (symbol "auto" >> pure "_") <|> pIdent <|> symbol "_"
 
 pVar :: Parser Raw 
 pVar = do 
@@ -137,7 +137,7 @@ pVar = do
   else pure $ RRef name
 
 pAtom :: Parser Raw 
-pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ symbol "_"))
+pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ (symbol "_" <|> symbol "auto")))
     <|> parens pTerm
 
 pTerm :: Parser Raw 
@@ -449,7 +449,7 @@ pRhs :: Parser Rhs
 pRhs = do 
   choice 
     [ do 
-        x <- symbol "nomatch" >> pIdent
+        x <- symbol "!@" >> pIdent
         pvs <- ask.!pvs
         guard $ x `elem` pvs 
         pure (NoMatchFor ('-':x))
@@ -553,7 +553,7 @@ emptyCfg = do
 -- for test
 testCfg :: IO Config 
 testCfg = do 
-  ref <- newIORef testContext2 
+  ref <- newIORef testContext2
   pure Config
     { ctx = ref 
     , pvs = ["t"]

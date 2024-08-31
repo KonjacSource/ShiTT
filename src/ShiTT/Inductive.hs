@@ -107,7 +107,11 @@ updateDef :: Context -> [Def] -> [Def] -> [Def]
 updateDef ctx a b = substDefs' ctx a b ++ substDefs' ctx b a
 
 -- | Check (con ps) agasint type t.
-checkCon :: Context -> [Name] -> (Constructor, [R.Pattern]) -> (Data, Spine) -> Either CheckError ([Name], Value, CheckResult)
+checkCon :: Context 
+         -> [Name] -- ^name order
+         -> (Constructor, [R.Pattern]) 
+         -> (Data, Spine) 
+         -> Either CheckError ([Name], Value, CheckResult)
 checkCon ctx ord (con, ps) (dat, dat_args) = do 
   let (dat_para, dat_ix) = splitAt (length dat.dataPara) dat_args
   let ps_type = conParaType ctx con dat dat_para
@@ -153,6 +157,7 @@ checkP ctx ord (p:ps) ((x', i', t'): ts)
           VCon dat_name dat_args -> do
             dat <- M.lookup dat_name ctx.decls.allDataDecls ^? (PMErr $ UnknownDataName dat_name)
             con <- lookupCon con_name dat                   ^? (PMErr $ UnknownConNameOfData con_name dat)
+            -- check constructor
             (ord', v, now) <- checkCon ctx ord (con, con_args) (dat, dat_args)
             let now' = now {typeLevelDef = (x' := v) : now.typeLevelDef}
             let ts' = substTelescope' ctx (now'.typeLevelDef ++ now'.extraDef) ts
@@ -247,3 +252,35 @@ unifySp ord ctx fore s1 s2 = case (s1, s2) of
     let ws' = substSp' ctx s ws
     unifySp ord ctx s vs' ws'
   _ -> error "impossible"
+
+
+-- Coverage Check 
+---------------------
+
+availdPattern :: Context -> (Name, Icit, VType) -> R.Pattern -> Maybe (Spine, CheckResult)
+availdPattern ctx t p = case checkP ctx [] [p] [t] of 
+  Right (_, s, r) -> pure (s, r) 
+  _ -> Nothing 
+  
+-- | Generate pattern of given constructor, adding used name to ctx
+mkConPat :: Context -> Data -> Constructor -> Icit -> (R.Pattern, (Value, Icit) , Context)  
+mkConPat ctx dat con i = (R.PCon con.conName pargs i, (VCon con.conName args, i), ctx') where 
+  ixls xs = go 0 xs where 
+    go _ [] = [] 
+    go n (x:xs) = (x,n) : go (n+1) xs
+  data_para_names = map (\((x,_,_),n) -> x ++ "'" ++ show n) $ ixls dat.dataPara
+  names = map (\(x, n) -> freshName ctx (x ++ show n)) (ixls (map (\(x,_,_) -> x) con.conPara))
+  pargs = map (\(n, (_,i,_)) -> R.PVar n i) $ zip names con.conPara
+  args = map (\(name, (_,i,t)) -> (VVar name, i)) $ zip (data_para_names ++ names) (dat.dataPara ++ con.conPara)
+  ctx' = ctx <: map freeVar names <: map freeVar data_para_names
+
+
+splitCase :: Context -> (VType, Icit) -> [(Value, Icit)]
+splitCase ctx (force -> t, icit) = case t of 
+  t@(VCon data_name data_args) ->
+    case M.lookup data_name ctx.decls.allDataDecls of 
+      Nothing  -> let x = genName in [(VVar x, icit)]
+      Just dat -> undefined
+  _ -> let x = genName in [(VVar x, icit)]
+  where 
+    genName = freshName ctx "~pat"

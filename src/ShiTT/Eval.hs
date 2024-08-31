@@ -203,15 +203,15 @@ exe sub [] a = a
 exe sub (b:bs) a = sub b (exe sub bs a)
 
 getFunType :: Context -> Fun -> VType 
-getFunType ctx fun = go [] fun.funPara where 
-  go args [] = fun.funRetType args  
-  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope' ctx [x := v] xs))
-
+getFunType ctx fun = go ctx [] fun.funPara where 
+  go ctx args [] = fun.funRetType args  
+  go ctx args ((x,i,t):xs) = 
+    VPi x i (refresh ctx t) (\v -> go (ctx <: (x := v)) (args >>> (v,i)) xs)
 
 getDataType :: Context -> Data -> VType 
-getDataType ctx dat = go [] (dat.dataPara ++ dat.dataIx) where 
-  go args [] = VU
-  go args ((x,i,t):xs) = VPi x i t (\v -> go (args >>> (v,i)) (substTelescope' ctx [x := v] xs))
+getDataType ctx dat = go ctx (dat.dataPara ++ dat.dataIx) where 
+  go ctx [] = VU
+  go ctx ((x,i,t):xs) = VPi x i (refresh ctx t) (\v -> go (ctx <: (x := v)) xs)
 
 
 -- The ctx must have the new values
@@ -226,11 +226,11 @@ substSp' ctx d = \case
 substTelescope' :: Context -> [Def] -> Telescope -> Telescope
 substTelescope' ctx ds = \case 
   [] -> []
-  (x,i,t):rest -> (x,i,subst' ctx ds t) : substTelescope' (ctx <: x :! (t, Source)) (rm x ds) rest
-  where rm x [] = []
-        rm x (d@(x':=_):xs) 
-          | x == x' = rm x xs 
-          | otherwise = d : rm x xs
+  (x,i,t):rest -> (x,i,subst' ctx ds t) : substTelescope' (ctx <: x :! (t, Source)) ds rest
+  -- where rm x [] = []
+  --       rm x (d@(x':=_):xs) 
+  --         | x == x' = rm x xs 
+  --         | otherwise = d : rm x xs
 
 substDefs' :: Context -> [Def] -> [Def] -> [Def]
 substDefs' ctx ds = \case 

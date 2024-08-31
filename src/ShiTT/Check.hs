@@ -12,6 +12,7 @@ import ShiTT.Eval
 import qualified Data.IntMap as I
 import qualified Data.Map as M 
 import Text.Megaparsec (sourcePosPretty)
+import Debug.Trace (trace)
 
 freshMeta :: Context -> IO Term 
 freshMeta ctx = do
@@ -118,7 +119,7 @@ data ElabError
 instance Show ElabError where 
   show = \case 
     NameNotInScope name ->  "Unknow name: " ++ name 
-    Can'tUnify v w -> "Can't unify " ++ show v ++ " with " ++ show w ++ ""
+    Can'tUnify v w -> "(Elaborator) Can't unify " ++ show v ++ " with " ++ show w ++ ""
     InferNamedLam -> "Can't infer the giving lambda"
     NoNamedImplicitArg name -> "There is no such implict name: " ++ name 
     IcitMismatch i i' -> "Expecting " ++ show i' ++ ", got " ++ show i
@@ -132,7 +133,8 @@ instance Show Error where
 type Anno = (Term, VType)
 
 unifyGuard :: Context -> Value -> Value -> IO ()
-unifyGuard ctx v w = do 
+unifyGuard ctx (force -> v) (force -> w) = 
+  do
     unify ctx v w 
   `catch` \UnifyError -> 
     throwIO . Error ctx $ Can'tUnify v w
@@ -146,7 +148,7 @@ insert' ctx = (>>= go) where
     _ -> pure (t, t_ty)
 
 insert :: Context -> IO Anno -> IO Anno 
-insert ctx = ( >>= \case
+insert ctx = (>>= \case
   (t@(Lam _ Impl _), v) -> pure (t, v)
   p                     -> insert' ctx (pure p) )
 
