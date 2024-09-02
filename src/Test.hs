@@ -12,6 +12,7 @@ import qualified ShiTT.Inductive as I
 import ShiTT.Decl (Pattern(PVar, PCon))
 import ShiTT.Meta
 import ShiTT.Inductive (splitCase)
+import Debug.Trace (trace)
 
 natData :: Data
 natData = Data 
@@ -382,3 +383,34 @@ t1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Ve
 t2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
 -- nil
 t3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])
+
+-- test coverage 
+
+matchTest1 = trace (show ps) $ I.match' (testContext2 <: res.typeLevelDef) rhs_ctx ts ps vs
+  where 
+    Right (_,_,res) = I.checkP testContext2 [] ps appendFun.funPara
+    rhs_ctx = testContext2 <: res.resultCtx <: res.freevarsRhs -- <: res.extraDef
+    ts = appendFun.funPara
+    ps = (appendFun.clauses!!0).patterns
+    vs = [(VVar "A%", Impl), (VVar "m%", Impl), (VVar "n%", Impl)
+         ,(VVar "v%", Expl), (VVar "w%", Impl)]
+    
+    -- appendFun :: R.Fun 
+    -- appendFun = R.Fun
+    --   { R.funName = "append"
+    --   , R.funPara = [ ("A", Impl, VU), ("m", Impl, natType), ("n", Impl, natType)
+    --                 , ("v", Expl, VCon "Vec" [(VVar "A", Expl), (VVar "m", Expl)])
+    --                 , ("w", Expl, VCon "Vec" [(VVar "A", Expl), (VVar "n", Expl)]) ]
+    --   , R.funRetType = \[(a,_), (m,_), (n,_), _, _] -> VCon "Vec" [(a, Expl), (VFunc "add'" [(m, Expl), (n, Expl)], Expl)]
+    --   , R.clauses = 
+    --     [ R.Clause 
+    --       [ PVar "-A" Impl, PVar "-m" Impl, PVar "-n" Impl
+    --       , PCon "nil" [] Expl, PVar "-w" Expl]
+    --       (R.Rhs $ pv"-w")
+    --     , R.Clause
+    --       [ PVar "-A" Impl, PVar "-m" Impl, PVar "-n" Impl
+    --       , PCon "cons" [PVar "-l" Impl, PVar "-x" Expl, PVar "-xs" Expl] Expl
+    --       , PVar "-w" Expl]
+    --       (R.Rhs $ v"cons" # pv"-x" # (v"append" # pv"-xs" # pv"-w"))
+    --     ]
+    --   }

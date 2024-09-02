@@ -169,6 +169,11 @@ check ctx t v = case (t, force v) of
   (SrcPos pos t, a) -> 
     check (ctx {pos = Just pos}) t a
   ---
+  (RPrintCtx t, a) -> do 
+    trace (show ctx) $ do 
+    t' <- check ctx t a
+    pure $ PrintCtx t'
+  ---
   (RLam x i t, VPi x' i' a b) 
     | caseBindKind i 
       (\case (Just name) -> i' == Impl && name == x'
@@ -202,6 +207,11 @@ infer ctx = \case
   SrcPos pos t -> 
     infer ctx {pos = Just pos} 
           t
+  ---
+  RPrintCtx t -> do 
+    trace (show ctx) $ do 
+    (t', ty) <- infer ctx t 
+    pure $ (PrintCtx t', ty)
   ---
   RRef ref -> 
     case M.lookup ref ctx.decls.allDataDecls of 

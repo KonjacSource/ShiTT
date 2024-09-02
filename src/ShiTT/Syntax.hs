@@ -37,6 +37,7 @@ data Raw
   | RApp Raw Raw BindKind   -- t u  | t {u} | t {x = u}
   | RPi Name Icit Raw Raw
   | RLet Name Raw Raw Raw
+  | RPrintCtx Raw
   | RU
   | SrcPos SourcePos Raw
   | Hole
@@ -63,6 +64,7 @@ data Term
   | Lam Name Icit Term
   | Pi Name Icit Type Term
   | Let Name Type Term Term
+  | PrintCtx Term
   | Func Name
   | Meta MetaId
   | PatVar Name

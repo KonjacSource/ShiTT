@@ -38,6 +38,7 @@ ghci> run "Eaxmple.shitt"
 - [ ] IO
 - [ ] Code generator
 - [ ] Type classes
+- [ ] Mutual recursion
 
 ## Example
 

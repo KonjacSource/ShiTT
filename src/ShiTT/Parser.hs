@@ -114,7 +114,7 @@ inCtx name = do
 
 
 keywords :: [String]
-keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto"]
+keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto", "traceContext"]
 
 pIdent :: Parser Name
 pIdent = do
@@ -124,6 +124,7 @@ pIdent = do
 
 parens p   = symbol "(" *> p <* symbol ")"
 braces p   = symbol "{" *> p <* symbol "}"
+braket p   = symbol "[" *> p <* symbol "]"
 arrow     = symbol "→" <|> symbol "->"
 pBind      = (symbol "auto" >> pure "_") <|> pIdent <|> symbol "_"
 
@@ -138,6 +139,10 @@ pVar = do
 
 pAtom :: Parser Raw 
 pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ (symbol "_" <|> symbol "auto")))
+    <|> (do 
+          t <- symbol "traceContext" >> braket pTerm
+          pure $ RPrintCtx t
+        )
     <|> parens pTerm
 
 pTerm :: Parser Raw 

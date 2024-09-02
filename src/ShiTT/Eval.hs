@@ -10,6 +10,9 @@ import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import ShiTT.Meta
 import Common
+import Debug.Trace (trace)
+import Control.Monad (join)
+import Data.List (nub)
 
 eval :: Context -> Term -> Value 
 eval ctx@(env -> env) = \case 
@@ -31,6 +34,8 @@ eval ctx@(env -> env) = \case
     Just f  -> vCall ctx f f.funPara
   ---
   U                   -> VU 
+  ---
+  PrintCtx t          -> trace (show ctx) $ eval ctx t
   ---
   Meta m              -> vMeta m
   --
@@ -165,7 +170,7 @@ pushCall ctx name sp = pushFun ctx (VFunc name sp)
 refresh :: Context -> Value -> Value 
 refresh ctx = eval ctx . quote ctx 
 
--------------------------------------
+--------------------------------------------------------------------------------------------
 
 -- stackoverflow : subst ("A" := VPatVar "-A" [])  (VPi "_" Expl (VVar "A") (\_ -> VU))
 -- TODO : Value ---quote--> Term ---subst--> Term ---eval---> Value
@@ -223,16 +228,37 @@ substSp' ctx d = \case
   [] -> []
   (v, i):rest -> (subst' ctx d v, i) : substSp' ctx d rest 
 
+-- TODO : BUG, to fix this, may need to rewrite a lot. Or add a prefix on telescope variables
+--  substTelescope' (testContext <: "x" := VVar "x") [("A" := VVar "x")] idData.dataIx
+--  ==> [("x",Expl,x),("y",Expl,x)]
 substTelescope' :: Context -> [Def] -> Telescope -> Telescope
 substTelescope' ctx ds = \case 
   [] -> []
-  (x,i,t):rest -> (x,i,subst' ctx ds t) : substTelescope' (ctx <: x :! (t, Source)) ds rest
-  -- where rm x [] = []
-  --       rm x (d@(x':=_):xs) 
-  --         | x == x' = rm x xs 
-  --         | otherwise = d : rm x xs
+  (x,i,t):rest -> (x,i,subst' ctx ds t) : substTelescope' (ctx <: x :! (t, Source)) (rm x ds) rest
+  where rm x [] = []
+        rm x (d@(x':=_):xs) 
+          | x == x' = rm x xs 
+          | otherwise = d : rm x xs
 
 substDefs' :: Context -> [Def] -> [Def] -> [Def]
 substDefs' ctx ds = \case 
   [] -> [] 
   (x := v):rest -> (x := subst' ctx ds v) : substDefs' ctx ds rest
+
+freeVarOf :: Context -> Value -> [Name]
+freeVarOf ctx = nub . go ctx [] where 
+  goSp ctx bound sp = join (go ctx bound <$> map fst sp)
+  go ctx bound = \case
+    VRig n sp | n `elem` bound -> goSp ctx bound sp
+              | otherwise      -> [n] ++ goSp ctx bound sp
+    VPatVar n sp | n `elem` bound -> goSp ctx bound sp
+              | otherwise      -> [n] ++ goSp ctx bound sp
+    VCon _ sp -> goSp ctx bound sp 
+    VFunc _ sp -> goSp ctx bound sp 
+    VFlex _ sp -> trace ("error: unsolved meta") $ goSp ctx bound sp
+    VLam x _ b -> let x' = freshName ctx x in go (ctx <: freeVar x') (x':bound) (b (VVar x'))
+    VPi x _ t b -> let x' = freshName ctx x 
+                       tf = go ctx bound t 
+                   in  tf ++ go (ctx <: freeVar x') (x':bound) (b (VVar x'))
+    VU -> []
+                        

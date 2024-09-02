@@ -42,6 +42,13 @@ infix 5 :=, :~, :!, :=!
 data Def = Name := Value
 data Bind = Name :~ (VType, NameOrigin) 
 
+getType :: Name -> [Bind] -> Maybe VType 
+getType x = \case 
+  [] -> Nothing 
+  ((x':~(v,_)):rs) 
+    | x == x' -> Just v
+    | otherwise -> getType x rs
+
 instance Show Def where 
   show (x := v) = x ++ " := " ++ show v
 

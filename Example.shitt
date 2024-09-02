@@ -1,14 +1,14 @@
 data Id {A : U} : (x y : A) -> U where 
 | refl : (t : A) -> ... t t 
 
+data N : U where  
+| zero : ...  
+| succ : (pre : N) -> ...  
+
 #infer Id
 
 fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
 | (refl _) (refl _) = refl (refl _)
-
-data N : U where  
-| zero : ...  
-| succ : (pre : N) -> ...  
 
 fun add (m n : N) : N where  
 | zero n = n
@@ -58,3 +58,7 @@ data Imf {A B : U} (f : A -> B) : (_ : B) -> U where
 
 fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
 | f _ (imf x) = x  
+
+fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
+| n k !@ k
+
