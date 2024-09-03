@@ -378,11 +378,11 @@ appendTest2 = v "append" # mkVec (map mkNum [0]) # mkVec (map mkNum [4])
 --   }
 
 -- cons
-t1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VCon "succ" [(VVar "m", Expl)], Expl)])
+splitTets1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VCon "succ" [(VVar "m", Expl)], Expl)])
 -- []
-t2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
+splitTets2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
 -- nil
-t3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])
+splitTets3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])
 
 -- test coverage 
 
@@ -414,3 +414,4 @@ matchTest1 = trace (show ps) $ I.match' (testContext2 <: res.typeLevelDef) rhs_c
     --       (R.Rhs $ v"cons" # pv"-x" # (v"append" # pv"-xs" # pv"-w"))
     --     ]
     --   }
+

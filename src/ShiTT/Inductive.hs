@@ -184,10 +184,11 @@ checkClause ctx fun (R.Clause pat rhs) = case rhs of
       -- TODO: Test Check absurd pattern
   R.Rhs t -> do
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
-    let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef
+    let rhs_ctx_without_ext = ctx <: res.resultCtx <: res.freevarsRhs
+    let rhs_ctx = rhs_ctx_without_ext <: res.extraDef
     let expect_type = refresh rhs_ctx $ fun.funRetType sp 
     rhs <- C.check rhs_ctx t expect_type
-    pure $ Just (rhs, rhs_ctx)
+    pure $ Just (rhs, rhs_ctx_without_ext)
 
 -- Turn a clause to a function.
 mkFunVal :: Context -> [R.Pattern] -> Term -> (Context -> Spine -> Maybe Value)
@@ -238,11 +239,8 @@ unify1 ord ctx fore v w = case (force v, force w) of
   (VPatVar n [], VVar n') | n == n' -> pure fore
   (VVar n', VPatVar n []) | n == n' -> pure fore
 
-  (VPatVar n [], r) | n `notElem` freeVarOf ctx r -> do
-    pure $ [n := r] ++ fore
-
-  (l, VPatVar n []) | n `notElem` freeVarOf ctx l -> do 
-    pure $ [n := l] ++ fore
+  (VPatVar n [], r) | n `notElem` freeVarOf ctx r -> pure $ [n := r] ++ fore
+  (l, VPatVar n []) | n `notElem` freeVarOf ctx l -> pure $ [n := l] ++ fore
   
   (VLam x i t, VLam _ i' t') | i == i' -> let x' = freshName ctx x in 
     unify1 ord (ctx <: freeVar x') fore (t $ VVar x') (t' $ VVar x')
@@ -423,7 +421,7 @@ match1' tlvl_ctx rhs_ctx tel@(tylvl_name, i, force -> t) p (v, i') = case (p, fo
         case splitCase rhs_ctx tel of 
           Nothing -> Left MoveNext -- i guess it's impossible 
           Just poss_pats -> Left . Stucked $ do 
-            
+
             (pat, v, res) <- poss_pats
             pure ([pat], [v], res)
   _ -> Left MoveNext

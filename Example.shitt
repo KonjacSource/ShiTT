@@ -62,3 +62,4 @@ fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where
 fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
 | n k !@ k
 
+#eval add zero

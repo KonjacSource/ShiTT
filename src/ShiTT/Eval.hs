@@ -139,10 +139,10 @@ vMeta m =
     Solved v -> v
 
 vCall :: Context -> Fun -> Telescope ->  Value
-vCall ctx f ls = helper [] ls 
+vCall ctx f ls = helper ctx [] ls 
   where 
-    helper arg [] = pushDone f ctx arg
-    helper arg ((x,i,t):xs) = VLam x i (\ v -> helper (arg >>> (v, i)) xs)
+    helper ctx' arg [] = pushDone f ctx' arg
+    helper ctx' arg ((freshName ctx' -> x,i,t):xs) = VLam x i (\ v -> helper (ctx' <: x := v) (arg >>> (v, i)) xs)
 
 -- vCall f ls = helper [] ls
 --   where helper arg [] = f arg
