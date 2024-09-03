@@ -78,8 +78,8 @@ ShiTT 也支持 Indexed Data Types,
 
 ```agda
 data Vec (A : U) : (n : Nat) -> U where 
-  nil : ... zero
-  cons : {n : Nat} (x : A) (xs : Vec x n) -> ... (succ n)
+| nil : ... zero
+| cons : {n : Nat} (x : A) (xs : Vec x n) -> ... (succ n)
 ```
 
 代码中的 `...` 是占位符. 通常的 Indexed Data Types 的实现都会将待定义类型分成两个部分, 一部分被称为参数, 另一部分被称为下标(Index), 比如在 `Vec` 中, `A` 是参数, `n` 是下表. **类型的每个构造子都必须返回完全一样的类型参数, 但是类型的下标却可以变化**, 所以不管是哪个构造子, 我们都只需要写出类型的下标, 类型的参数部分就成了多余的信息, 便可用 `...` 代之.

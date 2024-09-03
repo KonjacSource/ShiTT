@@ -53,13 +53,26 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
 
+--- 
+
+fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
+| n k !@ k
+
+--- test
+
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
 
 fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
 | f _ (imf x) = x  
 
-fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
-| n k !@ k
+data Either (A B : U) : U where 
+| left  : (_ : A) -> ...
+| right : (_ : B) -> ...
 
-#eval add zero
+data Unit : U where 
+| unit : ...
+
+fun invfEither {A B : U} (f : A -> B) (y : B) (_ : Either Unit (Imf f y)) : Either B A where 
+| f _ (right (imf x)) = right x 
+| f y (left unit) = left y
