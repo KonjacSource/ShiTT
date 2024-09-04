@@ -378,22 +378,28 @@ appendTest2 = v "append" # mkVec (map mkNum [0]) # mkVec (map mkNum [4])
 --   }
 
 -- cons
-splitTets1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VCon "succ" [(VVar "m", Expl)], Expl)])
+splitTest1 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VCon "succ" [(VVar "m", Expl)], Expl)])
 -- []
-splitTets2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
+splitTest2 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
 -- nil
-splitTets3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])
+splitTest3 = splitCase (testContext <: ("m", natType) :=! VVar "m") ("v", Expl, VCon "Vec" [(natType, Expl), (zero, Expl)])
+
+splitTest4 = splitCase (testContext <: ("m", natType) :=! VPatVar "m" []) ("v", Expl, VCon "Vec" [(natType, Expl), (VVar "m", Expl)])
 
 -- test coverage 
 
-matchTest1 = trace (show ps) $ I.match' (testContext2 <: res.typeLevelDef) rhs_ctx ts ps vs
-  where 
-    Right (_,_,res) = I.checkP testContext2 [] ps appendFun.funPara
-    rhs_ctx = testContext2 <: res.resultCtx <: res.freevarsRhs -- <: res.extraDef
-    ts = appendFun.funPara
-    ps = (appendFun.clauses!!0).patterns
-    vs = [(VVar "A%", Impl), (VVar "m%", Impl), (VVar "n%", Impl)
-         ,(VVar "v%", Expl), (VVar "w%", Impl)]
+--  Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
+
+matchTest1 = I.splitMatch1 testContext2 ("_", Expl, natType) (PCon "zero" [] Expl) (VVar "x" ,Expl)
+
+-- matchTest1 = trace (show ps) $ I.match' (testContext2 <: res.typeLevelDef) rhs_ctx ts ps vs
+--   where 
+--     Right (_,_,res) = I.checkP testContext2 [] ps appendFun.funPara
+--     rhs_ctx = testContext2 <: res.resultCtx <: res.freevarsRhs -- <: res.extraDef
+--     ts = appendFun.funPara
+--     ps = (appendFun.clauses!!0).patterns
+--     vs = [(VVar "A%", Impl), (VVar "m%", Impl), (VVar "n%", Impl)
+--          ,(VVar "v%", Expl), (VVar "w%", Impl)]
     
     -- appendFun :: R.Fun 
     -- appendFun = R.Fun

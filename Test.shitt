@@ -1,32 +1,48 @@
+--- Types
 data Id {A : U} : (x y : A) -> U where 
 | refl : (t : A) -> ... t t 
 
 data N : U where  
 | zero : ...  
-| succ : (pre : N) -> ...  
+| succ : (pre : N) -> ...
 
-#infer Id
-
-fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
-| (refl _) (refl _) = refl (refl _)
-
-fun add (m n : N) : N where  
-| zero n = n
-| (succ m) n = succ (add m n)
+data Bool : U where 
+| true : ... 
+| false : ...
 
 data Vec (A : U) : (_ : N) -> U where 
 | nil : ... zero 
 | cons : {n : N} (x : A) (xs : Vec A n) -> ... (succ n)
 
--- #infer Vec
+data Either (A B : U) : U where 
+| left  : (_ : A) -> ...
+| right : (_ : B) -> ...
+
+data Unit : U where 
+| unit : ...
+
+---------------------------------------------------------------
+
+
+def add (_ _ : N) : N where 
+| zero m = m 
+| (succ n) m = succ (add n m)
+
+data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
+| imf : (x : A) -> ... (f x) 
+
+fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
+| f _ (imf x) = x  
+
+fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
+| n k !@ k
+
+fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
+| (refl _) (refl _) = refl (refl _)
 
 fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n) 
 | nil w = w
 | (cons x xs) w = cons x (append xs w)
-
--- #eval append (cons zero (cons (succ zero) nil)) nil
-
--- Some theorems.
 
 fun sym {A : U} {x y : A} (p : Id x y) : Id y x where 
 | (refl _) = refl _
@@ -52,27 +68,3 @@ fun addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where
 fun addComm (x y : N) : Id (add x y) (add y x) where 
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
-
---- 
-
-fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
-| n k !@ k
-
---- test
-
-data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
-| imf : (x : A) -> ... (f x) 
-
-fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
-| f _ (imf x) = x  
-
-data Either (A B : U) : U where 
-| left  : (_ : A) -> ...
-| right : (_ : B) -> ...
-
-data Unit : U where 
-| unit : ...
-
-data Bool : U where 
-| true : ... 
-| false : ...

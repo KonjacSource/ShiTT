@@ -15,11 +15,11 @@ import Control.Monad (join)
 import Data.List (nub)
 
 eval :: Context -> Term -> Value 
-eval ctx@(env -> env) = \case 
+eval ctx@(env -> env) = \case
   ---
   Var x               -> case M.lookup x env of 
     Just v -> v 
-    Nothing -> error $ "Unknown var: " ++ x
+    Nothing -> VVar x
   ---
   App t u i           -> vApp (eval ctx t) (eval ctx u) i
   ---

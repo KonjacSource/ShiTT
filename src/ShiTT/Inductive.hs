@@ -4,18 +4,19 @@
 module ShiTT.Inductive where 
 
 import qualified ShiTT.Decl as R 
+import ShiTT.Decl (Pattern(..))
 import ShiTT.Context 
 import qualified ShiTT.Check as C 
 import ShiTT.Eval
 import qualified Data.Map as M 
 import ShiTT.Syntax
 import Control.Exception
-import Control.Monad (forM)
-import Data.Maybe (fromJust, isJust)
+import Control.Monad (forM, when)
+import Data.Maybe (fromJust, isJust, isNothing)
 import Debug.Trace (trace)
 import Control.Monad.Identity (Identity(runIdentity))
 
-match :: Context -> [R.Pattern] -> Spine -> Maybe [Def]
+match :: Context -> [Pattern] -> Spine -> Maybe [Def]
 match ctx [] [] = Just [] 
 match ctx (p:ps) (p':ps') = do 
   ret <- match1 ctx p p' 
@@ -23,14 +24,14 @@ match ctx (p:ps) (p':ps') = do
   pure $ ret ++ rest
 match _ p sp = error $ "Unmatch : " ++ show p ++ " | " ++ show sp
 
-match1 :: Context -> R.Pattern -> (Value, Icit) -> Maybe [Def]
-match1 ctx (R.PVar x i) (force -> v, i') | i == i' = Just $ pure (x := v)
-match1 ctx (R.PCon name ps i) (force -> VCon name' ps', i') 
+match1 :: Context -> Pattern -> (Value, Icit) -> Maybe [Def]
+match1 ctx (PVar x i) (force -> v, i') | i == i' = Just $ pure (x := v)
+match1 ctx (PCon name ps i) (force -> VCon name' ps', i') 
      | i == i' && name == name' = do 
       (dat, con) <- lookupCon' name ctx 
       match ctx ps (drop (length dat.dataPara) ps')
      | otherwise = Nothing 
-match1 ctx (R.PInacc _ _) _ = Just []
+match1 ctx (PInacc _ _) _ = Just []
 match1 ctx _ _ = Nothing 
 
 data PMErr 
@@ -39,7 +40,7 @@ data PMErr
   | UnknownDataName Name 
   | UnknownConNameOfData Name Data 
   | TheGivenTypeIsNotAData Value
-  | Matchable Name [R.Pattern]
+  | Matchable Name [Pattern]
   deriving Show 
 
 data CheckError = PMErr PMErr
@@ -111,7 +112,7 @@ updateDef ctx a b = substDefs' ctx a b ++ substDefs' ctx b a
 -- | Check (con ps) agasint type t.
 checkCon :: Context 
          -> [Name] -- ^name order
-         -> (Constructor, [R.Pattern]) 
+         -> (Constructor, [Pattern]) 
          -> (Data, Spine) 
          -> Either CheckError ([Name], Value, CheckResult)
 checkCon ctx ord (con, ps) (dat, dat_args) = do 
@@ -138,13 +139,13 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
 --   { resultCtx = [(n : N), (x : N), (xs : List N)]
 --   , typeLevelDef = [(m := succ n), (ls := cons xs)] 
 --   } 
-checkP :: Context -> [Name] -> [R.Pattern] -> Telescope -> Either CheckError ([Name], Spine, CheckResult)
+checkP :: Context -> [Name] -> [Pattern] -> Telescope -> Either CheckError ([Name], Spine, CheckResult)
 checkP ctx ord [] [] = pure $ (ord, [], CheckResult [] [] [] [])
 checkP ctx ord (p:ps) ((x', i', t'): ts) 
   | R.icit p == i' = 
     let t = refresh ctx t' in
     case p of 
-      R.PVar x i -> do 
+      PVar x i -> do 
         let now = CheckResult 
                   { resultCtx    = [x :~ (t, Source)]
                   , extraDef     = []
@@ -155,7 +156,7 @@ checkP ctx ord (p:ps) ((x', i', t'): ts)
         (ord', psv, rest) <- checkP (ctx <: x := VPatVar x []) (x : ord) ps ts'
         pure (ord', (VPatVar x [], i) : psv, unionRes ctx now rest)
       
-      R.PCon con_name con_args i -> 
+      PCon con_name con_args i -> 
         case t of 
           VCon dat_name dat_args -> do
             dat <- M.lookup dat_name ctx.decls.allDataDecls ^? (PMErr $ UnknownDataName dat_name)
@@ -169,29 +170,29 @@ checkP ctx ord (p:ps) ((x', i', t'): ts)
 
           _ -> Left . PMErr $ TheGivenTypeIsNotAData t
 
-      R.PInacc n _ -> error "Deprecated" 
+      PInacc n _ -> error "Deprecated" 
   | otherwise = Left . PMErr $ IcitErr (R.icit p) i' 
 checkP ctx ord _ _ = Left . PMErr $ NumOfPatErr
 
-checkClause :: Context -> R.Fun -> R.Clause -> IO (Maybe (Term, Context))
+checkClause :: Context -> R.Fun -> R.Clause -> IO (Either Context (Term, Context))
 checkClause ctx fun (R.Clause pat rhs) = case rhs of
   R.NoMatchFor x -> do -- Check absurd pattern
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
-    case splitCase (ctx <: res.resultCtx <: res.extraDef) (x, Expl, fromJust (getType x res.resultCtx)) of
-      Just [] -> pure Nothing 
+    let rhs_ctx = ctx <: res.resultCtx <: res.extraDef
+    case splitCase rhs_ctx (x, Expl, fromJust (getType x res.resultCtx)) of
+      Just [] -> pure (Left rhs_ctx)
       Just ps -> throwIO . PMErr $ Matchable x (map (\(x,_,_) -> x) ps)
-      Nothing -> throwIO . PMErr $ Matchable x [R.PVar x Expl]
+      Nothing -> throwIO . PMErr $ Matchable x [PVar x Expl]
       -- TODO: Test Check absurd pattern
   R.Rhs t -> do
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
-    let rhs_ctx_without_ext = ctx <: res.resultCtx <: res.freevarsRhs
-    let rhs_ctx = rhs_ctx_without_ext <: res.extraDef
+    let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef
     let expect_type = refresh rhs_ctx $ fun.funRetType sp 
     rhs <- C.check rhs_ctx t expect_type
-    pure $ Just (rhs, rhs_ctx_without_ext)
+    pure $ Right (rhs, rhs_ctx)
 
 -- Turn a clause to a function.
-mkFunVal :: Context -> [R.Pattern] -> Term -> (Context -> Spine -> Maybe Value)
+mkFunVal :: Context -> [Pattern] -> Term -> (Context -> Spine -> Maybe Value)
 mkFunVal ctx ps rhs call_ctx sp = do 
   defs <- match ctx ps sp
   let ctx' = call_ctx <: defs 
@@ -203,14 +204,22 @@ checkClauses ctx fun cls = do
     rhs <- checkClause ctx fun c
     pure (c.patterns, rhs)
 
-  let patsWithRhsCtx = do 
+  let patsWithRes = do 
         (p, t) <- rhss
         case t of 
-          Nothing -> [] 
-          Just (_,ctx) -> pure (p,ctx)
-  -- TODO : Coverage Check
+          Left ctx -> pure (p,ctx)
+          Right (_,ctx) -> pure (p,ctx)
+  when (fun.funName == "test") $ do
+    trace (show $
+        splitMatch ctx fun.funPara (fst $ head patsWithRes) (map (\(x,i,_) -> (VVar ('&':x), i)) fun.funPara)
+      ) (pure ()) 
 
-  let vs = map (\(pat, fst . fromJust -> rhs) -> mkFunVal ctx pat rhs) $ filter (isJust . snd) (rhss)
+  -- TODO : Test Coverage Check
+  checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
+
+  let rhss' = flip map rhss \case (p, Left _)  -> (p, Nothing) 
+                                  (p, Right x) -> (p, Just x)
+  let vs = map (\(pat, fst . fromJust -> rhs) -> mkFunVal ctx pat rhs) $ filter (isJust . snd) rhss'
   let go [] = \call_ctx sp -> Nothing 
       go (v:vs) = \call_ctx sp -> case v call_ctx sp of 
         Just r -> Just r
@@ -275,30 +284,23 @@ unifySp ord ctx fore s1 s2 = case (s1, s2) of
 -- Coverage Check 
 ---------------------
 
-data Unmatch 
-  = Stucked [([R.Pattern], Spine, CheckResult)] -- Or say: splitted
-  -- match x with pattern (succ n)
-  | MoveNext 
-  -- match nil with pattern (cons x xs)
-  deriving Show
-
 -- | Is the pattern availd in the context
-availdPattern :: Context -> (Name, Icit, VType) -> R.Pattern -> Maybe ((Value, Icit), CheckResult)
+availdPattern :: Context -> (Name, Icit, VType) -> Pattern -> Maybe ((Value, Icit), CheckResult)
 availdPattern ctx t p = case checkP ctx [] [p] [t] of 
   Right (_, s, r) -> pure (head s, r) 
   _ -> Nothing 
   
 -- | Generate pattern of given constructor, return used names (in pattern)
-mkConPat :: Context -> Data -> Constructor -> Icit -> R.Pattern
-mkConPat ctx dat con i = (R.PCon con.conName pargs i) where 
+mkConPat :: Context -> Data -> Constructor -> Icit -> Pattern
+mkConPat ctx dat con i = (PCon con.conName pargs i) where 
   ixls xs = go 0 xs where 
     go _ [] = [] 
     go n (x:xs) = (x,n) : go (n+1) xs
   names = map (\(x, n) -> freshName ctx (x ++ show n)) (ixls (map (\(x,_,_) -> x) con.conPara))
-  pargs = map (\(n, (_,i,_)) -> R.PVar n i) $ zip names con.conPara
+  pargs = map (\(n, (_,i,_)) -> PVar n i) $ zip names con.conPara
 
 -- | Give the expected type, generate all the possible patterns.
-splitCase :: Context -> (Name, Icit, VType) -> Maybe [(R.Pattern, (Value, Icit), CheckResult)]
+splitCase :: Context -> (Name, Icit, VType) -> Maybe [(Pattern, (Value, Icit), CheckResult)]
 splitCase ctx (x, icit, force -> t) = case t of 
   t@(VCon data_name data_args) ->
     case M.lookup data_name ctx.decls.allDataDecls of 
@@ -314,125 +316,108 @@ splitCase ctx (x, icit, force -> t) = case t of
   _ -> Nothing -- only_var
   -- where 
   --   pat_name = freshName ctx "~pat'"
-  --   only_var = let (b, c) = fromJust $ availdPattern ctx (x, Impl, t) (R.PVar pat_name icit) in 
-  --     [(R.PVar pat_name icit, b, c)]
+  --   only_var = let (b, c) = fromJust $ availdPattern ctx (x, Impl, t) (PVar pat_name icit) in 
+  --     [(PVar pat_name icit, b, c)]
 
--- | Is the pattern availd in the context
-availdPatternWithInacc :: Context -> (Name, Icit, VType) -> R.Pattern -> Maybe ((Value, Icit), CheckResult)
-availdPatternWithInacc ctx t p = case checkP ctx [] [p] [t] of 
-  Right (_, s, r) -> pure (head s, r) 
-  _ -> Nothing 
-  
-
-splitCaseWithInacc :: Context -> (Name, Icit, VType) -> Maybe [(R.Pattern, (Value, Icit), CheckResult)]
-splitCaseWithInacc ctx (x, icit, force -> t) = case t of 
-  t@(VCon data_name data_args) ->
-    case M.lookup data_name ctx.decls.allDataDecls of 
-      Nothing  -> Nothing
-      Just dat -> Just do -- List do  
-
-        con <- dat.dataCons
-        let conP = mkConPat ctx dat con icit
-        case availdPattern ctx (x, icit, t) conP of
-          Nothing -> [] 
-          Just (v, res) -> pure (conP, v, res)
-  
-  _ -> Nothing -- only_var
-  -- where 
-  --   pat_name = freshName ctx "~pat'"
-  --   only_var = let (b, c) = fromJust $ availdPattern ctx (x, Impl, t) (R.PVar pat_name icit) in 
-  --     [(R.PVar pat_name icit, b, c)]
-
-data CoverageError = Fine | Exhausted Name Spine -- Coverage check failed
-  deriving (Show, Exception)
-
-coverageCheck :: Context -> Telescope -> [([R.Pattern], Context)] -> IO ()
-coverageCheck outer_ctx ts ps = undefined
+----------------------------------
 
 isInacc :: Context -> Name -> Bool 
 isInacc rhs_ctx name = case M.lookup name rhs_ctx.env of 
   Just (VVar x      ) | x == name -> False -- free 
-  Just (VPatVar x []) | x == name -> True 
+  Just (VPatVar x []) | x == name -> False 
   _ -> True
 
-match' :: Context -> Context -> Telescope -> [R.Pattern] -> Spine -> Either Unmatch [Def] -- the [Def] may not needed
-match' tlvl_ctx rhs_ctx ts ps sp =  case (ts, ps, sp) of 
-  ([], [], []) -> pure []
-  (t:(substTelescope' tlvl_ctx [] -> ts),p:ps,v:sp) -> case match1' tlvl_ctx rhs_ctx t p v of 
-    
-    Right def -> 
-      
-      case match' tlvl_ctx rhs_ctx 
-                  ts 
+data MatchResult
+  = Done [Def]
+  | Failed 
+  | Stucked [Spine]
+  deriving Show 
+
+-- | ctx |- rhs, extraDef in ctx.
+splitMatch1 :: Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
+splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of 
+  (PVar x _, VPatVar v []) 
+    | isInacc ctx x -> Done [x := VPatVar v []]
+    | otherwise     -> Done [x := VVar v]
+  (PVar x _, VVar v) 
+    | isInacc ctx x -> Done [x := VPatVar v []]
+    | otherwise     -> Done [x := VVar v]
+  (PVar x _, v) -> Done [x := v]
+  (PCon con_name ps _, VCon con_name' vs) -- note that length ps /= length vs, since vs includes data parameters
+    | con_name == con_name' -> 
+        -- 1. get data definition and constructor definition
+        let (dat, con) = fromJust $ lookupCon' con_name ctx
+        -- 2. split telescope to data parameters and constructor parameters  
+            (pre_tys,arg_tys) = splitAt (length dat.dataPara) con.conPara
+            (pre_vs, arg_vs)  = splitAt (length dat.dataPara) vs
+        -- 3. try match vs against ps under the modified pre_tys
+        in case splitMatch 
+                  ctx
+                  (substTelescope' 
+                    ctx
+                    (map (\((x,_,_), v) -> x := fst v) 
+                      (zip pre_tys vs)) 
+                    arg_tys) 
                   ps 
-                  sp 
-        of 
-        Right def' -> Right $ def ++ def' 
-        Left MoveNext -> Left MoveNext
-        Left (Stucked poss_pats) -> Left . Stucked $ do 
-          (pat,vs,res) <- poss_pats
-          pure $ (p:pat, v:vs, res)
-    
-    Left MoveNext -> Left MoveNext
-    
-    Left (Stucked poss_pats) -> Left . Stucked $ do 
-      (pat1, v1, res1) <- poss_pats
-      case match' tlvl_ctx (rhs_ctx <: res1.resultCtx <: res1.freevarsRhs <: res1.extraDef)
-                  ts
-                  ps
-                  sp
-        of 
-        Left (Stucked poss_pats_rest) -> do 
-          (pat, v, res) <- poss_pats_rest
-          pure (pat1++pat, v1++v, unionRes rhs_ctx res1 res)
+                  arg_vs
+          of 
+            Failed -> Failed
+            Done defs -> Done defs
+            Stucked poss -> Stucked do 
+              vs' <- poss 
+              pure [(VCon con_name (pre_vs ++ vs'), i)]
+    | otherwise -> Failed 
+  (p,  VVar x) -> case splitCase ctx t of 
+      Nothing -> Failed 
+      Just poss -> Stucked do 
+        (_,v,_) <- poss 
+        pure [v] 
+  _ -> error "impossible"
+splitMatch1 _ _ _ _ = error "impossible"
 
-        _ -> map (\(p, v) -> (p:ps, v:sp, res1)) (zip pat1 v1)
-         
-
-  _ -> error "Impossible"
-
--- | Try to match, if can't match, try spilt or move to next set of patterns 
-match1' :: Context -> Context -> (Name, Icit, VType) -> R.Pattern -> (Value, Icit) -> Either Unmatch [Def]
-match1' tlvl_ctx rhs_ctx tel@(tylvl_name, i, force -> t) p (v, i') = case (p, force v) of 
-  (R.PVar x _, v) -> 
-        pure [x := v] 
-  (R.PCon con_name ps _, VCon vcon_name vs) 
-    | con_name == vcon_name -> do 
-        let (dat, con) = fromJust $ lookupCon' con_name rhs_ctx 
-        let (pre_tys,arg_tys) = splitAt (length dat.dataPara) con.conPara
-        case match' 
-              tlvl_ctx rhs_ctx 
-              (substTelescope' 
-                  rhs_ctx
-                  (map (\((x,_,_), v) -> x := fst v) (zip pre_tys vs)) 
-                  arg_tys) 
-              ps 
-              (drop (length dat.dataPara) vs) 
-          of
-          Right e -> pure e 
-
-          Left (Stucked poss_pats) -> Left . Stucked $ do 
-            (pat, v, res) <- poss_pats 
-            pure ([R.PCon con_name pat i], [(VCon con_name v, i)], res)
-
-          Left MoveNext -> Left MoveNext
-    | otherwise -> Left MoveNext 
-  (p, VVar x) -> do 
-        case splitCase rhs_ctx tel of 
-          Nothing -> Left MoveNext -- i guess it's impossible 
-          Just poss_pats -> Left . Stucked $ do 
-
-            (pat, v, res) <- poss_pats
-            pure ([pat], [v], res)
-  _ -> Left MoveNext
+splitMatch :: Context -> Telescope -> [Pattern] -> Spine -> MatchResult
+splitMatch ctx ts ps vs = case (ts, ps, vs) of 
+  ([], [], []) -> Done []
+  (t:ts, p:ps, v:vs) -> 
+    case splitMatch1 ctx t p v of 
+      Failed -> Failed 
+      -- 
+      Done defs -> case splitMatch (ctx <: defs) ts ps vs of 
+        Failed -> Failed 
+        Done defs' -> Done $ defs ++ defs' 
+        Stucked poss -> Stucked do 
+          vs <- poss
+          pure (v:vs)
+      -- 
+      Stucked poss -> Stucked do 
+        v' <- poss 
+        v <- v'
+        pure (v:vs)
+  _ -> error "impossible" 
 
 
--- match1 :: Context -> R.Pattern -> (Value, Icit) -> Maybe [Def]
--- match1 ctx (R.PVar x i) (force -> v, i') | i == i' = Just $ pure (x := v)
--- match1 ctx (R.PCon name ps i) (force -> VCon name' ps', i') 
---      | i == i' && name == name' = do 
---       (dat, con) <- lookupCon' name ctx 
---       match ctx ps (drop (length dat.dataPara) ps')
---      | otherwise = Nothing 
--- match1 ctx (R.PInacc _ _) _ = Just []
--- match1 ctx _ _ = Nothing 
+travPattern :: Telescope -> [([Pattern], Context)] -> Spine -> Maybe [Spine]
+travPattern ts [] sp = Just [sp]  -- passed
+travPattern ts pats@((ps,rhs_ctx): rest) sp = case splitMatch rhs_ctx ts ps sp of 
+  Failed -> travPattern ts rest sp 
+  Done _ -> Nothing 
+  Stucked new_sps -> 
+    let res = map (travPattern ts pats) new_sps
+    in  if all isNothing res then 
+          Nothing
+        else Just do
+          s <- res 
+          case s of 
+            Nothing -> [] 
+            Just sp -> sp
+
+checkCoverage :: Name -> Telescope -> [([Pattern], Context)] -> Spine -> IO () 
+checkCoverage fun_name ts ps sp = do 
+  case travPattern ts ps sp of 
+    Nothing -> pure () 
+    Just sp -> putStrLn ("Warning: Missing patterns on function " ++ fun_name ++ "\n" ++ show sp)
+
+genInitSp :: Context -> Telescope -> Spine 
+genInitSp ctx = \case 
+  [] -> [] 
+  (freshName ctx . ('*':) -> x,i,t):ts -> (VVar x, i) : genInitSp (ctx <: freeVar x) ts
