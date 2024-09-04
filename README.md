@@ -156,7 +156,7 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | (succ x) y = traceContext[  trans (cong succ (addComm x y)) (addSucc y x)  ]
 ```
 
-`traContext` will print the context definitions and the goal type (if it is not a metavariable) while type checking. Also note that `traContext[x] = x`
+`traceContext` will print the context definitions and the goal type (if it is not a metavariable) while type checking. Also note that `traceContext[x] = x`
 
 ## Example
 

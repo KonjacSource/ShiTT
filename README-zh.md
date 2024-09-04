@@ -180,7 +180,7 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | (succ x) y = traceContext[  trans (cong succ (addComm x y)) (addSucc y x)  ]
 ```
 
-`traContext` 会输出环境中的变量以及目标类型 (如果它明确的话), 注意到 `traContext[x] = x`.
+`traceContext` 会输出环境中的变量以及目标类型 (如果它明确的话), 注意到 `traceContext[x] = x`.
 
 
 ## 例子
