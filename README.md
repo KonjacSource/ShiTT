@@ -25,7 +25,7 @@ ghci> run "Eaxmple.shitt"
 - [x] Type in Type
 - [x] Evaluation by HOAS
 - [x] Meta variables and implict arugments (pattern unification)
-- [x] Pattern match and data type
+- [x] Pattern matching and data type
 - [x] Coverage checking
 
 ## TODO
