@@ -5,7 +5,7 @@ data N : U where
 | zero : ...  
 | succ : (pre : N) -> ...  
 
-#infer Id
+-- #infer Id
 
 fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
 | (refl _) (refl _) = refl (refl _)
@@ -87,3 +87,10 @@ fun invfEither2 {A : U} (f : A -> N) (y : N) (_ : Either Unit (Imf f y)) : Eithe
 | f y        (right (imf x)) = right x         -- here y is     inaccessible
 | f zero     (left   unit)   = left false      -- here y is not inaccessible
 | f (succ y) (left   unit)   = left true       -- here y is not inaccessible
+
+def maj (_ _ _ : Bool) : Bool where 
+| true  true  true  = true
+| true  false z     = z 
+| false y     true  = y 
+| x     true  false = x 
+| false false false = false

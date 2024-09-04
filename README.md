@@ -69,12 +69,12 @@ data Vec (A : U) : (n : Nat) -> U where
 | cons : {n : Nat} (x : A) (xs : Vec x n) -> ... (succ n)
 ```
 
-This is equivalent to
+In Agda, this is equivalent to
 
 ```agda
 data Vec (A : U) : (n : Nat) -> U where 
-| nil : Vec A zero
-| cons : {n : Nat} (x : A) (xs : Vec x n) -> Vec A (succ n)
+  nil : Vec A zero
+  cons : {n : Nat} (x : A) (xs : Vec x n) -> Vec A (succ n)
 ```
 
 Those dots `...` in code is a place holder for the name and parameters for defining data type.
