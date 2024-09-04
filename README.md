@@ -43,7 +43,7 @@ ghci> run "Eaxmple.shitt"
 
 ## Syntax
 
-### Define a Type 
+### Data Types
 
 ```agda
 data Nat : U where 
@@ -87,7 +87,7 @@ data Id {A : U} : (_ _ : A) -> U where
 | refl : (x : A) -> ... x x
 ```
 
-### Function and Pattern Matching
+### Functions and Pattern Matching
 
 ShiTT allows you to use pattern match to define a function
 
