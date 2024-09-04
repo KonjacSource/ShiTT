@@ -24,10 +24,11 @@ ghci> run "Eaxmple.shitt"
 ## 特性
 
 - [x] 依值类型
+- [x] Type in Type
 - [x] HOAS 求值.
 - [x] 元变量求解和隐式变量
 - [x] 代数数据类型和模式匹配
-- [ ] 模式完全性检查
+- [x] 模式完全性检查
 - [ ] 运算符
 - [ ] 停机检查
 - [ ] 归纳类型的极性检查
@@ -47,8 +48,8 @@ ShiTT 支持类似 Agda 的语法进行类型声明. 比如一些常见的类型
 
 ```agda
 data Nat : U where 
-  zero : ... 
-  succ : (_ : Nat) -> ...
+| zero : ... 
+| succ : (_ : Nat) -> ...
 ```
 
 这相当于如下 Agda 代码
@@ -105,6 +106,7 @@ def add (x y : Nat) : Nat where
 ```
 
 然后可以使用 `#eval` 进行求值, 在解析器读到这一行时就会在 stdout 中输出计算结果.
+并且可以使用 `#infer` 得到项的类型并输出.
 
 ShiTT 支持依赖模式匹配, 意味着模式匹配中的变量可能会被其他模式确定, 比如
 
@@ -149,6 +151,37 @@ ShiTT 使用下划线可以插入一个隐式变量, 如果你不喜欢下划线
 ### 定理证明?
 
 ShiTT 不是一个 PA, 所以这里直接使用了 Type in Type, 并且将来可能考虑不添加终止检查.
+
+## 其他语法
+
+### Let 绑定
+
+```haskell
+#eval let x : Nat = succ zero ; add x x
+```
+
+### Lambda 表达式
+
+```haskell
+#eval \ x . add (succ zero) x
+```
+
+### 按名应用隐式参数
+
+```haskell
+#eval Id {A = Nat}
+```
+
+### 输出环境
+
+```haskell
+fun addComm (x y : N) : Id (add x y) (add y x) where 
+| zero y = sym (addIdR _)
+| (succ x) y = traceContext[  trans (cong succ (addComm x y)) (addSucc y x)  ]
+```
+
+`traContext` 会输出环境中的变量以及目标类型 (如果它明确的话), 注意到 `traContext[x] = x`.
+
 
 ## 例子
 

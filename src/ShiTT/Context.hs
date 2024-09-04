@@ -183,8 +183,10 @@ insertData dat decls = Decls
         decls.allFunDecls)
       dat.dataCons
   }
-  where allImpl [] = [] 
-        allImpl ((x,_,t):xs) = (x, Impl, t) : allImpl xs
+
+allImpl :: [(a, b, c)] -> [(a, Icit, c)]
+allImpl [] = [] 
+allImpl ((x,_,t):xs) = (x, Impl, t) : allImpl xs
         
 insertFun :: Fun -> Decls -> Decls
 insertFun fun@(funName -> name) decls = decls 

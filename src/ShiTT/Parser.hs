@@ -24,8 +24,7 @@ import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
-import ShiTT.Meta (allSolved)
-import Debug.Trace (trace)
+import ShiTT.Meta (allSolved, reset)
 
 
 type PatVars = [Name]
@@ -585,4 +584,4 @@ fromFileTest p fp = do
     Right a -> pure a
 
 run :: String -> IO () 
-run fp = fromFile pProg fp >> pure ()
+run fp = reset >> fromFile pProg fp >> pure ()

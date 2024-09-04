@@ -22,13 +22,14 @@ ghci> run "Eaxmple.shitt"
 ## Features
 
 - [x] Dependent types
-- [x] Evaluation by HOAS.
+- [x] Type in Type
+- [x] Evaluation by HOAS
 - [x] Meta variables and implict arugments (pattern unification)
 - [x] Pattern match and data type
+- [x] Coverage checking
 
 ## TODO
 
-- [ ] Coverage checking
 - [ ] Operators
 - [ ] Termination checking
 - [ ] Positive checking for data types
@@ -40,7 +41,126 @@ ghci> run "Eaxmple.shitt"
 - [ ] Type classes
 - [ ] Mutual recursion
 
+## Syntax
+
+### Define a Type 
+
+```agda
+data Nat : U where 
+| zero : ... 
+| succ : (_ : Nat) -> ...
+```
+
+This equivalent to following code in Agda.
+
+```agda
+data Nat : Set where
+  zero : Nat 
+  succ : Nat -> Nat
+```
+
+### Indexed Types
+
+ShiTT also allow Indexed Data Types like
+
+```agda
+data Vec (A : U) : (n : Nat) -> U where 
+| nil : ... zero
+| cons : {n : Nat} (x : A) (xs : Vec x n) -> ... (succ n)
+```
+
+This is equivalent to
+
+```agda
+data Vec (A : U) : (n : Nat) -> U where 
+| nil : Vec A zero
+| cons : {n : Nat} (x : A) (xs : Vec x n) -> Vec A (succ n)
+```
+
+Those dots `...` in code is a place holder for the name and parameters for defining data type.
+In this case, `...` is `Vec A` exactly.
+
+We can also define the propositional equality.
+
+```agda
+data Id {A : U} : (_ _ : A) -> U where 
+| refl : (x : A) -> ... x x
+```
+
+### Function and Pattern Matching
+
+ShiTT allows you to use pattern match to define a function
+
+```haskell
+def add (x y : Nat) : Nat where 
+| zero y = y 
+| (succ x) y = succ (add x y)
+
+def three : Nat where 
+| = succ (succ (succ zero))
+
+#eval add three three
+```
+
+The `#eval` will evaluate and print the following term to stdout.
+
+Also, `#infer` will infer the type of the following term and print it.
+
+ShiTT allows dependent pattern match, which means some varibles in pattern will be unified by other pattern, 
+
+```haskell
+data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
+| imf : (x : A) -> ... (f x) 
+
+fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
+| f _ (imf x) = x  
+
+#eval invf succ (succ zero) (imf zero)
+```
+
+Here `y` is restricted by `imf x`.
+
+## Other Syntax
+
+### Let Binding
+
+```haskell
+#eval let x : Nat = succ zero ; add x x
+```
+
+### Lambda Expression
+
+```haskell
+#eval \ x . add (succ zero) x
+```
+
+### Apply Implicit Argument by Name
+
+```haskell
+#eval Id {A = Nat}
+```
+
+### Insert Meta Argument Explicitly
+
+```haskell
+#eval let x : Id zero zero = refl _ ; U
+-- or
+#eval let x : Id zero zero = refl auto ; U
+```
+
+### Print Context
+
+```haskell
+fun addComm (x y : N) : Id (add x y) (add y x) where 
+| zero y = sym (addIdR _)
+| (succ x) y = traceContext[  trans (cong succ (addComm x y)) (addSucc y x)  ]
+```
+
+`traContext` will print the context definitions and the goal type (if it is not a metavariable) while type checking. Also note that `traContext[x] = x`
+
 ## Example
+
+The following example shows the basic syntax and how to do some simple theorem proof (remember we have no termination check yet).
 
 ```haskell
 data Id {A : U} : (_ _ : A) -> U where 

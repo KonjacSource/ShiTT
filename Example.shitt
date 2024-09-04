@@ -53,12 +53,12 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
 
---- 
+--- absurd pattern
 
 fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
 | n k !@ k
 
---- test
+--- 
 
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
@@ -76,3 +76,14 @@ data Unit : U where
 data Bool : U where 
 | true : ... 
 | false : ...
+
+-- test coverage check
+
+fun invfEither {A B : U} (f : A -> B) (y : B) (_ : Either Unit (Imf f y)) : Either B A where 
+| {A} {B} f y (right (imf x)) = right x -- here y is     inaccessible
+| {A} {B} f y (left unit)     = left y      -- here y is not inaccessible
+
+fun invfEither2 {A : U} (f : A -> N) (y : N) (_ : Either Unit (Imf f y)) : Either Bool A where 
+| f y        (right (imf x)) = right x         -- here y is     inaccessible
+| f zero     (left   unit)   = left false      -- here y is not inaccessible
+| f (succ y) (left   unit)   = left true       -- here y is not inaccessible

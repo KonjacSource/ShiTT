@@ -183,7 +183,6 @@ checkClause ctx fun (R.Clause pat rhs) = case rhs of
       Just [] -> pure (Left rhs_ctx)
       Just ps -> throwIO . PMErr $ Matchable x (map (\(x,_,_) -> x) ps)
       Nothing -> throwIO . PMErr $ Matchable x [PVar x Expl]
-      -- TODO: Test Check absurd pattern
   R.Rhs t -> do
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
     let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef
@@ -209,10 +208,10 @@ checkClauses ctx fun cls = do
         case t of 
           Left ctx -> pure (p,ctx)
           Right (_,ctx) -> pure (p,ctx)
-  when (fun.funName == "test") $ do
-    trace (show $
-        splitMatch ctx fun.funPara (fst $ head patsWithRes) (map (\(x,i,_) -> (VVar ('&':x), i)) fun.funPara)
-      ) (pure ()) 
+  -- when (fun.funName == "test") $ do
+  --   trace (show $
+  --       splitMatch ctx fun.funPara (fst $ head patsWithRes) (map (\(x,i,_) -> (VVar ('&':x), i)) fun.funPara)
+  --     ) (pure ()) 
 
   -- TODO : Test Coverage Check
   checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
@@ -296,7 +295,7 @@ mkConPat ctx dat con i = (PCon con.conName pargs i) where
   ixls xs = go 0 xs where 
     go _ [] = [] 
     go n (x:xs) = (x,n) : go (n+1) xs
-  names = map (\(x, n) -> freshName ctx (x ++ show n)) (ixls (map (\(x,_,_) -> x) con.conPara))
+  names = map (\(x, n) -> freshName ctx (x ++ show (n :: Int))) (ixls (map (\(x,_,_) -> x) con.conPara))
   pargs = map (\(n, (_,i,_)) -> PVar n i) $ zip names con.conPara
 
 -- | Give the expected type, generate all the possible patterns.
@@ -348,31 +347,37 @@ splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of
         -- 1. get data definition and constructor definition
         let (dat, con) = fromJust $ lookupCon' con_name ctx
         -- 2. split telescope to data parameters and constructor parameters  
-            (pre_tys,arg_tys) = splitAt (length dat.dataPara) con.conPara
+            (pre_tys,arg_tys) = (allImpl dat.dataPara, con.conPara)
             (pre_vs, arg_vs)  = splitAt (length dat.dataPara) vs
+            teles = (substTelescope' 
+                      ctx
+                      (map (\((x,_,_), v) -> x := fst v) 
+                        (zip pre_tys vs)) 
+                      arg_tys) 
         -- 3. try match vs against ps under the modified pre_tys
         in case splitMatch 
                   ctx
-                  (substTelescope' 
-                    ctx
-                    (map (\((x,_,_), v) -> x := fst v) 
-                      (zip pre_tys vs)) 
-                    arg_tys) 
+                  teles
                   ps 
                   arg_vs
-          of 
-            Failed -> Failed
-            Done defs -> Done defs
-            Stucked poss -> Stucked do 
-              vs' <- poss 
-              pure [(VCon con_name (pre_vs ++ vs'), i)]
+        of 
+          Failed -> Failed
+          Done defs -> Done defs
+          Stucked poss -> Stucked do 
+            vs' <- poss 
+            pure [(VCon con_name (pre_vs ++ vs'), i)]
     | otherwise -> Failed 
   (p,  VVar x) -> case splitCase ctx t of 
       Nothing -> Failed 
       Just poss -> Stucked do 
         (_,v,_) <- poss 
         pure [v] 
-  _ -> error "impossible"
+  (p,  VPatVar x []) -> case splitCase ctx t of 
+      Nothing -> Failed 
+      Just poss -> Stucked do 
+        (_,v,_) <- poss 
+        pure [v]
+  _ -> error $ "\n\nimpossible : " ++ show ctx ++ show t ++ " | " ++ show p ++ " | " ++ show (v, i) ++ "\n"
 splitMatch1 _ _ _ _ = error "impossible"
 
 splitMatch :: Context -> Telescope -> [Pattern] -> Spine -> MatchResult
@@ -393,7 +398,7 @@ splitMatch ctx ts ps vs = case (ts, ps, vs) of
         v' <- poss 
         v <- v'
         pure (v:vs)
-  _ -> error "impossible" 
+  _ -> error $ "impossible : " ++ show ctx ++ show ts ++ "\n" ++ show ps ++ "\n" ++ show vs 
 
 
 travPattern :: Telescope -> [([Pattern], Context)] -> Spine -> Maybe [Spine]
