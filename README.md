@@ -2,7 +2,7 @@
 
 [English]() | [中文](./README-zh.md)
 
-ShiTT is a shitty language.
+ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
 
 ## Usage
 
