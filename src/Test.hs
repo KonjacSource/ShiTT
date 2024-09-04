@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Test where 
 import ShiTT.Syntax
@@ -12,7 +13,6 @@ import qualified ShiTT.Inductive as I
 import ShiTT.Decl (Pattern(PVar, PCon))
 import ShiTT.Meta
 import ShiTT.Inductive (splitCase)
-import Debug.Trace (trace)
 
 natData :: Data
 natData = Data 

@@ -11,10 +11,8 @@ import ShiTT.Eval
 import qualified Data.Map as M 
 import ShiTT.Syntax
 import Control.Exception
-import Control.Monad (forM, when)
+import Control.Monad (forM)
 import Data.Maybe (fromJust, isJust, isNothing)
-import Debug.Trace (trace)
-import Control.Monad.Identity (Identity(runIdentity))
 
 match :: Context -> [Pattern] -> Spine -> Maybe [Def]
 match ctx [] [] = Just [] 

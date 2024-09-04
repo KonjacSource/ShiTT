@@ -103,7 +103,7 @@ freshName' :: [Name] -> Name -> Name
 freshName' ls = \case
   "_" -> "_"
   x -> if x `elem` ls then 
-      go x 0 
+      go x (0 :: Int) 
     else
       x  
   where
