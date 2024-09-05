@@ -24,7 +24,7 @@ import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
-import ShiTT.Meta (allSolved, reset)
+import ShiTT.Meta (allSolved, reset, withoutKRef)
 
 
 type PatVars = [Name]
@@ -515,7 +515,12 @@ pTopLevel = choice [data_type, function, command] where
   function = do 
     fun <- pFun 
     ctx <- getCtx
-    checked_fun <- liftIO $ checkFun ctx fun
+    checked_fun <- liftIO $ checkFun ctx fun 
+      `catch` \e -> putStrLn ("In function " ++ fun.funName) >> case e of  
+        PMErr pm -> error (show pm)
+        UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
+        UsedK -> error "Are you using K?"
+
     addFun checked_fun
 
   command = symbol "#" >> do
@@ -530,6 +535,8 @@ pTopLevel = choice [data_type, function, command] where
         (t, _) <- inferType term 
         ctx <- getCtx
         printLn . refresh ctx $ eval ctx t
+      "withoutK" -> do 
+        liftIO $ writeIORef withoutKRef True
       _ -> fail $ "Unknown command " ++ cmd
     
 

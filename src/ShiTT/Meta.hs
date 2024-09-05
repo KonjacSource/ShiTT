@@ -38,3 +38,12 @@ allSolved :: IO Bool
 allSolved = do
   ms <- readIORef mctx
   pure $ all solved ms
+
+-- Options
+-----------
+
+withoutKRef :: IORef Bool 
+withoutKRef = runIO $ newIORef False 
+
+withoutK :: Bool 
+withoutK = runIO $ readIORef withoutKRef

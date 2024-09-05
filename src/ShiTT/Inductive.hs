@@ -13,6 +13,9 @@ import ShiTT.Syntax
 import Control.Exception
 import Control.Monad (forM)
 import Data.Maybe (fromJust, isJust, isNothing)
+import ShiTT.Meta 
+import Debug.Trace (trace)
+import Data.IORef (readIORef)
 
 match :: Context -> [Pattern] -> Spine -> Maybe [Def]
 match ctx [] [] = Just [] 
@@ -43,6 +46,7 @@ data PMErr
 
 data CheckError = PMErr PMErr
                 | UnifyE Value Value
+                | UsedK
   deriving (Exception, Show)
 
 -- | f : NameOrder
@@ -237,6 +241,12 @@ checkFun ctx fun = do
 
 unify1 :: NameOrder -> Context -> [Def] -> Value -> Value -> Either CheckError [Def]
 unify1 ord ctx fore v w = case (force v, force w) of 
+
+  (VPatVar n [], VPatVar m []) | (runIO $ readIORef withoutKRef) && m == n -> Left UsedK
+  (VPatVar n [], VRig m [])    | (runIO $ readIORef withoutKRef) && m == n -> Left UsedK
+  (VRig n []   , VPatVar m []) | (runIO $ readIORef withoutKRef) && m == n -> Left UsedK
+  (VRig n []   , VRig m [])    | (runIO $ readIORef withoutKRef) && m == n -> Left UsedK
+
   (VPatVar n [], VPatVar m [])
     | m == n    -> pure fore
     | otherwise -> if ord m n then pure $ (n := VRig m []) : fore
