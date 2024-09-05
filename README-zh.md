@@ -4,6 +4,11 @@
 
 ShiTT 是一个屎屎的语言, 支持一些高级依值类型特性.
 
+这里有几篇实现笔记, 如果你对实现模式匹配感兴趣, 或许可以参考,
+
+- [依值类型下的归纳类型和模式匹配的实现笔记](https://konjacsource.github.io/2024/09/02/%E4%BE%9D%E5%80%BC%E7%B1%BB%E5%9E%8B%E4%B8%8B%E7%9A%84%E6%A8%A1%E5%BC%8F%E5%8C%B9%E9%85%8D/)
+- [依值类型下模式匹配的完全性检查](https://konjacsource.github.io/2024/09/05/%E4%BE%9D%E5%80%BC%E7%B1%BB%E5%9E%8B%E4%B8%8B%E6%A8%A1%E5%BC%8F%E5%8C%B9%E9%85%8D%E7%9A%84%E5%AE%8C%E5%85%A8%E6%80%A7%E6%A3%80%E6%9F%A5/)
+
 ## 用法
 
 编译, 然后加载 shitt 文件, 或者从 Release 中下载已编译好的文件.

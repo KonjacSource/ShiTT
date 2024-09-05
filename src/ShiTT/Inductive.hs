@@ -334,7 +334,7 @@ data MatchResult
 splitMatch1 :: Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
 splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of 
   (PVar x _, VPatVar v []) 
-    | isInacc ctx x -> Done [x := VPatVar v []]
+    | isInacc ctx x -> Done [x := VPatVar v []] -- Mark as flexibile
     | otherwise     -> Done [x := VVar v]
   (PVar x _, VVar v) 
     | isInacc ctx x -> Done [x := VPatVar v []]
@@ -352,7 +352,7 @@ splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of
                       (map (\((x,_,_), v) -> x := fst v) 
                         (zip pre_tys vs)) 
                       arg_tys) 
-        -- 3. try match vs against ps under the modified pre_tys
+        -- 3. try match vs against ps under the modified teles
         in case splitMatch 
                   ctx
                   teles

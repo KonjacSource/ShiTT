@@ -94,3 +94,7 @@ def maj (_ _ _ : Bool) : Bool where
 | false y     true  = y 
 | x     true  false = x 
 | false false false = false
+
+data Void : U where 
+
+fun lem {A : U} : Either A (A -> Void) 
