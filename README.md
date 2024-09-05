@@ -27,6 +27,7 @@ ghci> run "Eaxmple.shitt"
 - [x] Meta variables and implict arugments (pattern unification)
 - [x] Pattern matching and data type
 - [x] Coverage checking
+- [x] Withou K (but Weak K still works for now)
 
 ## TODO
 
