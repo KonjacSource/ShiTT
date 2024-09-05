@@ -22,3 +22,11 @@ fun K1 {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e whe
 -- not OK
 fun uip1 {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
 | (refl _) (refl _) = refl (refl _)
+
+-- not OK
+fun weakK 
+  {A : U} {a : A} 
+  (P : Id {Id a a} (refl _) (refl _) -> U) 
+  (p : P (refl _)) (e : Id {Id a a} (refl _) (refl _))
+: P e where 
+| P p (refl _) = p

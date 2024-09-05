@@ -14,7 +14,6 @@ import Control.Exception
 import Control.Monad (forM)
 import Data.Maybe (fromJust, isJust, isNothing)
 import ShiTT.Meta 
-import Debug.Trace (trace)
 import Data.IORef (readIORef)
 
 match :: Context -> [Pattern] -> Spine -> Maybe [Def]
