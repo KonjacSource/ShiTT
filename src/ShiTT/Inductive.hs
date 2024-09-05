@@ -11,7 +11,7 @@ import ShiTT.Eval
 import qualified Data.Map as M 
 import ShiTT.Syntax
 import Control.Exception
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import Data.Maybe (fromJust, isJust, isNothing)
 import ShiTT.Meta 
 import Data.IORef (readIORef)
@@ -123,6 +123,8 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
   -- infer the data index 
   let ret_ix = con.retIx (allImpl dat_para ++ psv) 
   -- unify inferred data index with dat_ix  
+  when (runIO $ readIORef withoutKRef) do 
+    unifySp (listOrder ord') ctx [] ret_ix ret_ix >> pure ()
   defs <- unifySp (listOrder ord') ctx [] ret_ix dat_ix
 
   pure ( ord'
