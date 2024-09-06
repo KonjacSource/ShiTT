@@ -1,19 +1,21 @@
 # ShiTT
 
-[English]() | [中文](./README-zh.md)
+[English](./README.md) | [中文](./README-zh.md)
 
 ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
 
 ## Usage
 
-```
+Build from source, or download binary from release.
+
+```shell
 > stack build 
 > ./shitt Example.shitt
 ```
 
 or
 
-```
+```shell
 > stack repl 
 ghci> import ShiTT.Parser 
 ghci> run "Eaxmple.shitt"
@@ -28,6 +30,7 @@ ghci> run "Eaxmple.shitt"
 - [x] Pattern matching and data type
 - [x] Coverage checking
 - [x] Without K
+- [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
 
 ## TODO
 
@@ -107,7 +110,7 @@ The `#eval` will evaluate and print the following term to stdout.
 
 Also, `#infer` will infer the type of the following term and print it.
 
-ShiTT allows dependent pattern match, which means some varibles in pattern will be unified by other pattern, 
+ShiTT allows dependent pattern match, which means some varibles in pattern will be unified by other pattern,
 
 ```haskell
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 

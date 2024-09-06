@@ -87,7 +87,7 @@ data Bool : U where
 
 fun invfEither {A B : U} (f : A -> B) (y : B) (_ : Either Unit (Imf f y)) : Either B A where 
 | {A} {B} f y (right (imf x)) = right x -- here y is     inaccessible
-| {A} {B} f y (left unit)     = left y      -- here y is not inaccessible
+| {A} {B} f y (left unit)     = left y  -- here y is not inaccessible
 
 fun invfEither2 {A : U} (f : A -> N) (y : N) (_ : Either Unit (Imf f y)) : Either Bool A where 
 | f y        (right (imf x)) = right x         -- here y is     inaccessible

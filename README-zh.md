@@ -1,6 +1,6 @@
 # ShiTT(屎TT)
 
-[English](./README.md) | [中文]()
+[English](./README.md) | [中文](./README-zh.md)
 
 ShiTT 是一个屎屎的语言, 支持一些高级依值类型特性.
 
@@ -13,14 +13,14 @@ ShiTT 是一个屎屎的语言, 支持一些高级依值类型特性.
 
 编译, 然后加载 shitt 文件, 或者从 Release 中下载已编译好的文件.
 
-```
+```shell
 > stack build 
 > ./shitt Example.shitt
 ```
 
 或者从 ghci 中手动加载.
 
-```
+```shell
 > stack repl 
 ghci> import ShiTT.Parser 
 ghci> run "Eaxmple.shitt"
@@ -35,6 +35,7 @@ ghci> run "Eaxmple.shitt"
 - [x] 代数数据类型和模式匹配
 - [x] 模式完全性检查
 - [x] 无K的模式匹配
+- [x] [语法高亮](https://github.com/KonjacSource/shitt-highlight)
 - [ ] 运算符
 - [ ] 停机检查
 - [ ] 归纳类型的极性检查
@@ -188,7 +189,6 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 
 `traceContext` 会输出环境中的变量以及目标类型 (如果它明确的话), 注意到 `traceContext[x] = x`.
 
-
 ## 例子
 
 如下的例子展示了定义类型与函数的基本语法, 并展示了如何证明加法结合律和交换律.
@@ -246,6 +246,5 @@ def addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where
 def addComm (x y : N) : Id (add x y) (add y x) where 
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
-
 
 ```
