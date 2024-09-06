@@ -13,7 +13,6 @@ import Control.Monad.Reader
 
 import qualified ShiTT.Decl as D
 import ShiTT.Decl (Pattern(PVar, PCon), Rhs(Rhs, NoMatchFor))
-
 import ShiTT.Context
 import ShiTT.Syntax
 import Data.Char

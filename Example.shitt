@@ -64,8 +64,6 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
 | n k !@ k
 
---- 
-
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
 
