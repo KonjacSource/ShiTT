@@ -8,6 +8,7 @@ module ShiTT.Context where
 import ShiTT.Syntax
 import qualified Data.Map as M
 import Text.Megaparsec (SourcePos)
+import ShiTT.Decl (Pattern)
 
 data NameOrigin = Inserted | Source 
   deriving (Eq, Show)
@@ -114,36 +115,72 @@ data Data = Data
   , dataCons :: [Constructor] 
   }
 
+data HData = HData 
+  { basePart :: Data 
+  , higherCons :: [HConstructor]
+  } 
+
+{-
+| loop : (i : I) -> S1 when i 
+    | i0 = base
+    | i1 = base
+-}
+data HConstructor = HConstructor 
+  { hconName     :: Name
+  , hconVars     :: [Name]
+  , hconPatterns :: [[Pattern]]
+  , hconClauses  :: Context -> Spine -> Maybe Value
+  }
+
+-- | Normal data type to HIT
+mkNoneHData :: Data -> HData 
+mkNoneHData d = HData { basePart = d , higherCons = [] }
+
+mkConDef :: HData -> Constructor -> (Context -> Spine -> Maybe Value)
+mkConDef dat con = case hcon dat.higherCons of 
+  Nothing -> \ _ sp -> Just $ VCon con.conName sp 
+  Just hcon -> hcon.hconClauses
+  where hcon [] = Nothing 
+        hcon (x:xs) 
+          | x.hconName == con.conName = Just x 
+          | otherwise = hcon xs
+
+-- TODO: HIT
 lookupCon :: Name -> Data -> Maybe Constructor
 lookupCon n d = go d.dataCons where 
   go [] = Nothing 
   go (c:cs) = if c.conName == n then Just c else go cs
 
+-- TODO: HIT
 lookupCon' :: Name -> Context -> Maybe (Data, Constructor)
 lookupCon' con_name (allDataDecls . decls -> datas) = 
-  let dat_ls = M.toList $ M.filter (\dat -> con_name `elem` map conName dat.dataCons) datas in 
+  let dat_ls = M.toList $ M.filter (\dat -> con_name `elem` map conName dat.basePart.dataCons) datas in 
   case dat_ls of 
     [] -> Nothing 
     ((_, dat):_) -> do 
-      con <- lookupCon con_name dat
-      pure (dat, con)
+      con <- lookupCon con_name dat.basePart
+      pure (dat.basePart, con)
   
 instance Show Data where 
   show = dataName
 
+instance Show HData where 
+  show = dataName . basePart
+
 data Constructor = Constructor
   { conName :: Name 
   , belongsTo :: Name 
-  , conPara :: Telescope -- dataPara |- telescope
+  , conPara :: Telescope      -- dataPara |- telescope
   , retIx   :: Spine -> Spine -- (dataPara ++ conPara) |- spine
   }
 
 instance Show Constructor where 
   show = conName
 
+
 data Decls = Decls 
   { definedNames :: [Name]
-  , allDataDecls :: M.Map Name Data
+  , allDataDecls :: M.Map Name HData
   , allFunDecls  :: M.Map Name Fun
   } deriving Show
 
@@ -151,6 +188,7 @@ data Decls = Decls
 hasName :: Decls -> Name -> Bool 
 (definedNames -> names) `hasName` name = name `elem` names 
 
+-- App spine on the data, i.e. Vec A n
 appData :: Data -> [Value] -> Value 
 appData dat sp = VCon dat.dataName (map (\((_,i,_), v) -> (v,i)) (zip (dat.dataPara ++ dat.dataIx) sp))
 
@@ -158,8 +196,9 @@ appData dat sp = VCon dat.dataName (map (\((_,i,_), v) -> (v,i)) (zip (dat.dataP
 insertData :: Data -> Decls -> Decls 
 insertData dat decls = Decls 
   { definedNames = [con.conName | con <- dat.dataCons] ++ dat.dataName : decls.definedNames 
-  , allDataDecls = M.insert dat.dataName dat decls.allDataDecls
+  , allDataDecls = M.insert dat.dataName (mkNoneHData dat) decls.allDataDecls
   , allFunDecls = foldr 
+      -- add Constructor definitions
       (\con ->
         M.insert
           con.conName 
@@ -172,6 +211,7 @@ insertData dat decls = Decls
             , funVal = \_ sp -> Just $ VCon con.conName sp 
             }
           )
+      -- add Data definition
       (M.insert 
         dat.dataName 
         Fun 
@@ -182,6 +222,38 @@ insertData dat decls = Decls
           } 
         decls.allFunDecls)
       dat.dataCons
+  }
+
+
+insertHData :: HData -> Decls -> Decls 
+insertHData dat decls = Decls 
+  { definedNames = [con.conName | con <- dat.basePart.dataCons] ++ dat.basePart.dataName : decls.definedNames 
+  , allDataDecls = M.insert dat.basePart.dataName dat decls.allDataDecls
+  , allFunDecls = foldr 
+      -- add Constructor definitions
+      (\con ->
+        M.insert
+          con.conName 
+          Fun 
+            { funName = con.conName
+            , funPara = allImpl dat.basePart.dataPara ++ con.conPara
+            , funRetType = \ sp -> 
+                let (para, _) = splitAt (length dat.basePart.dataPara) sp in 
+                appData dat.basePart (map fst $ para ++ con.retIx sp)
+            , funVal = mkConDef dat con -- \_ sp -> Just $ VCon con.conName sp 
+            }
+          )
+      -- add Data definition
+      (M.insert 
+        dat.basePart.dataName 
+        Fun 
+          { funName = dat.basePart.dataName
+          , funPara = dat.basePart.dataPara ++ dat.basePart.dataIx
+          , funRetType = \ _ -> VU 
+          , funVal = \_ sp -> Just $ VCon dat.basePart.dataName sp
+          } 
+        decls.allFunDecls)
+      dat.basePart.dataCons
   }
 
 allImpl :: [(a, b, c)] -> [(a, Icit, c)]

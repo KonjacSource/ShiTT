@@ -215,7 +215,7 @@ infer ctx = \case
   ---
   RRef ref -> 
     case M.lookup ref ctx.decls.allDataDecls of 
-      Just dat -> pure (Func ref, getDataType ctx dat) 
+      Just (basePart -> dat) -> pure (Func ref, getDataType ctx dat) 
 
       _ -> case M.lookup ref ctx.decls.allFunDecls of 
         Just fun -> pure (Func ref, getFunType ctx fun)

@@ -34,6 +34,7 @@ ghci> run "Eaxmple.shitt"
 
 ## TODO
 
+- [ ] Higher Inductive Types
 - [ ] Operators
 - [ ] Termination checking
 - [ ] Positive checking for data types

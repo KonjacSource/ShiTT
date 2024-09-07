@@ -112,7 +112,7 @@ inCtx name = do
 
 
 keywords :: [String]
-keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto", "traceContext"]
+keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto", "traceContext", "inductive", "higher", "when"]
 
 pIdent :: Parser Name
 pIdent = do
@@ -269,7 +269,7 @@ Each constructor must give all indexes.
 --   Then return the fake definition.
 pDataHeader :: Parser Data
 pDataHeader = do
-  data_name <- symbol "data" >> pIdent
+  data_name <- (symbol "data" <|> symbol "inductive") >> pIdent
   isFresh data_name
   data_para <- pTelescope' -- Adding data parameters to context.
   data_ix <- symbol ":" >> pTelescope 
@@ -591,3 +591,6 @@ fromFileTest p fp = do
 
 run :: String -> IO () 
 run fp = reset >> fromFile pProg fp >> pure ()
+
+runTest :: String -> IO ()
+runTest fp = reset >> fromFileTest pProg fp >> pure ()

@@ -24,7 +24,7 @@ type InaccId = Int
 data Pattern 
   = PVar Name Icit 
   | PCon Name [Pattern] Icit -- TODO: Change to `PCon Constructor [Pattern] Icit`
-  | PInacc InaccId Icit
+  | PInacc InaccId Icit -- Deprecated  
 
 icit :: Pattern -> Icit
 icit = \case 

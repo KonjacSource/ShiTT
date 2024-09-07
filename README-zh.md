@@ -36,6 +36,7 @@ ghci> run "Eaxmple.shitt"
 - [x] 模式完全性检查
 - [x] 无K的模式匹配
 - [x] [语法高亮](https://github.com/KonjacSource/shitt-highlight)
+- [ ] 高阶归纳类型
 - [ ] 运算符
 - [ ] 停机检查
 - [ ] 归纳类型的极性检查

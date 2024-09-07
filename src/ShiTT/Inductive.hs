@@ -162,8 +162,10 @@ checkP ctx ord (p:ps) ((x', i', t'): ts)
       PCon con_name con_args i -> 
         case t of 
           VCon dat_name dat_args -> do
-            dat <- M.lookup dat_name ctx.decls.allDataDecls ^? (PMErr $ UnknownDataName dat_name)
-            con <- lookupCon con_name dat                   ^? (PMErr $ UnknownConNameOfData con_name dat)
+            (basePart -> dat) <- M.lookup dat_name ctx.decls.allDataDecls 
+                                 ^? (PMErr $ UnknownDataName dat_name)
+            con <- lookupCon con_name dat                   
+                   ^? (PMErr $ UnknownConNameOfData con_name dat)
             -- check constructor
             (ord', v, now) <- checkCon ctx ord (con, con_args) (dat, dat_args)
             let now' = now {typeLevelDef = (x' := v) : now.typeLevelDef}
@@ -180,14 +182,14 @@ checkP ctx ord _ _ = Left . PMErr $ NumOfPatErr
 checkClause :: Context -> R.Fun -> R.Clause -> IO (Either Context (Term, Context))
 checkClause ctx fun (R.Clause pat rhs) = case rhs of
   R.NoMatchFor x -> do -- Check absurd pattern
-    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
+    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here we check patterns
     let rhs_ctx = ctx <: res.resultCtx <: res.extraDef
     case splitCase rhs_ctx (x, Expl, fromJust (getType x res.resultCtx)) of
       Just [] -> pure (Left rhs_ctx)
       Just ps -> throwIO . PMErr $ Matchable x (map (\(x,_,_) -> x) ps)
       Nothing -> throwIO . PMErr $ Matchable x [PVar x Expl]
   R.Rhs t -> do
-    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here
+    (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here we check patterns
     let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef
     let expect_type = refresh rhs_ctx $ fun.funRetType sp 
     rhs <- C.check rhs_ctx t expect_type
@@ -211,12 +213,7 @@ checkClauses ctx fun cls = do
         case t of 
           Left ctx -> pure (p,ctx)
           Right (_,ctx) -> pure (p,ctx)
-  -- when (fun.funName == "test") $ do
-  --   trace (show $
-  --       splitMatch ctx fun.funPara (fst $ head patsWithRes) (map (\(x,i,_) -> (VVar ('&':x), i)) fun.funPara)
-  --     ) (pure ()) 
-
-  -- TODO : Test Coverage Check
+  -- Coverage Check
   checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
 
   let rhss' = flip map rhss \case (p, Left _)  -> (p, Nothing) 
@@ -238,6 +235,9 @@ checkFun ctx fun = do
                }
   let ctx' =ctx { decls = insertFun preFun ctx.decls }
   val <- checkClauses ctx' fun fun.clauses 
+
+  -- TODO : Check HIT
+
   pure $ preFun { funVal = val }
 
 unify1 :: NameOrder -> Context -> [Def] -> Value -> Value -> Either CheckError [Def]
@@ -313,7 +313,7 @@ splitCase ctx (x, icit, force -> t) = case t of
   t@(VCon data_name data_args) ->
     case M.lookup data_name ctx.decls.allDataDecls of 
       Nothing  -> Nothing
-      Just dat -> Just do -- List do  
+      Just (basePart -> dat) -> Just do -- List do  
 
         con <- dat.dataCons
         let conP = mkConPat ctx dat con icit
@@ -435,3 +435,41 @@ genInitSp :: Context -> Telescope -> Spine
 genInitSp ctx = \case 
   [] -> [] 
   (freshName ctx . ('*':) -> x,i,t):ts -> (VVar x, i) : genInitSp (ctx <: freeVar x) ts
+
+-- HIT 
+--------------------------------------------------------------------------
+
+{-
+
+data HData = HData 
+  { basePart :: Data 
+  , higherCons :: [HConstructor]
+  } 
+
+data HConstructor = HConstructor 
+  { hconName     :: Name
+  , hconVars     :: [Name]
+  , hconClauses  :: Context -> Spine -> Maybe Value
+  }
+
+-}
+
+-- | equalPair _ intData
+--   => [(neg zero, pos zero)]
+
+asValue :: [Def] -> Pattern -> ((Value, Icit), [Def])
+asValue fvs = \case 
+  PVar x i -> ((VVar x, i), freeVar x : fvs)
+  PCon con sp i -> 
+    let (spv, fvs') = foldr 
+                      (\p (rest, c) -> let (v, c') = asValue c p in (v : rest, c')) 
+                      ([], fvs) 
+                      sp 
+    in ((VCon con spv , i), fvs')
+  PInacc _ _ -> error "Deprecated"
+
+
+equalPair :: Context -> HData -> [(Value, Value)]
+equalPair ctx hdat = do
+  hcon <- hdat.higherCons 
+  undefined

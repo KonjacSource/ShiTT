@@ -144,6 +144,7 @@ reflCon = Constructor
 
 testDecls 
   = insertFun addFun 
+  $ insertHData intData
   $ insertData natData 
   $ insertData vecData 
   $ insertData idData 
@@ -421,3 +422,67 @@ matchTest1 = I.splitMatch1 testContext2 ("_", Expl, natType) (PCon "zero" [] Exp
     --     ]
     --   }
 
+-- HIT
+---------------------------------------- 
+
+{-
+data Int : U where 
+| pos : (n : N) -> ... 
+| neg : (n : N) -> ... 
+    when n 
+    | zero = pos zero
+-}
+intData :: HData 
+intData = HData 
+  { basePart = Data 
+    { dataName = "Int"
+    , dataCons = 
+      [ Constructor 
+        { conName = "pos"
+        , belongsTo = "Int"
+        , conPara = [("n", Expl, natType)]
+        , retIx = \ _ -> []
+        }
+      , Constructor 
+        { conName = "neg"
+        , belongsTo = "Int"
+        , conPara = [("n", Expl, natType)]
+        , retIx = \ _ -> []
+        } 
+      ]
+    , dataPara = [] 
+    , dataIx  = []
+    }
+  , higherCons = 
+    [ HConstructor 
+      { hconName = "neg"
+      , hconVars = ["n"]
+      , hconPatterns = [ [PCon "zero" [] Expl] ]
+      , hconClauses = \ctx -> \case 
+          [(VCon "zero" [], Expl)] -> Just (VCon "pos" [(VCon "zero" [], Expl)])
+          sp -> Just $ VCon "neg" sp
+      }
+    ]
+  }
+
+-- Coverage check will forbid to do pattern match on this, but checkP won't
+intervalData :: Data 
+intervalData = Data 
+  { dataName = "Interval" 
+  , dataPara = [] 
+  , dataIx   = []
+  , dataCons = 
+    [ Constructor
+      { conName = "i0"
+      , belongsTo = "Interval"
+      , conPara = []
+      , retIx = \ _ -> [] 
+      }
+    , Constructor 
+      { conName = "i1"
+      , belongsTo = "Interval"
+      , conPara = [] 
+      , retIx = \ _ -> [] 
+      }
+    ]
+  }
