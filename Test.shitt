@@ -9,12 +9,8 @@ higher inductive Int : U where
     when 
     | zero = pos zero
 
-#eval neg zero
+#eval neg zero -- pos zero
 
--- fun abs (n : Int) : N where 
--- | neg n = succ n
--- | pos n = n
-
--- #eval neg zero
-
--- #eval bcon {U} true false
+def abs (n : Int) : N where 
+| pos n = n
+| neg n = n 
