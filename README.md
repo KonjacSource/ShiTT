@@ -31,10 +31,10 @@ ghci> run "Eaxmple.shitt"
 - [x] Coverage checking
 - [x] Without K
 - [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
+- [x] Higher Inductive Types(No boundary check yet)
 
 ## TODO
 
-- [ ] Higher Inductive Types
 - [ ] Operators
 - [ ] Termination checking
 - [ ] Positive checking for data types
@@ -124,6 +124,19 @@ fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where
 ```
 
 Here `y` is restricted by `imf x`.
+
+### HIT
+
+```haskell
+higher inductive Int : U where 
+| pos : (n : N) -> ... 
+| neg : (n : N) -> ... 
+    when 
+    | zero = pos zero
+
+#infer Int -- : U 
+#eval neg zero -- = pos zero
+```
 
 ## Other Syntax
 

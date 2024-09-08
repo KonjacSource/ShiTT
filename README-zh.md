@@ -36,7 +36,7 @@ ghci> run "Eaxmple.shitt"
 - [x] 模式完全性检查
 - [x] 无K的模式匹配
 - [x] [语法高亮](https://github.com/KonjacSource/shitt-highlight)
-- [ ] 高阶归纳类型
+- [x] 高阶归纳类型(暂无边界检查)
 - [ ] 运算符
 - [ ] 停机检查
 - [ ] 归纳类型的极性检查
@@ -155,6 +155,19 @@ ShiTT 使用下划线可以插入一个隐式变量, 如果你不喜欢下划线
 ![auto 部分都是类型检查器自动填写的](./auto.png)
 
 手动填写 auto 也很麻烦, 所以我们使用隐式参数让 ShiTT 自动插入 auto.
+
+### HIT
+
+```haskell
+higher inductive Int : U where 
+| pos : (n : N) -> ... 
+| neg : (n : N) -> ... 
+    when 
+    | zero = pos zero
+
+#infer Int -- : U 
+#eval neg zero -- = pos zero
+```
 
 ### 定理证明?
 
