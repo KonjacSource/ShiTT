@@ -24,7 +24,6 @@ import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
 import ShiTT.Meta (allSolved, reset, withoutKRef)
-import Debug.Trace (trace)
 
 
 type PatVars = [Name]

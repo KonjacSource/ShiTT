@@ -457,9 +457,9 @@ checkHData ctx (dat, hcons) = do
   let ctx' = ctx { decls = insertData dat ctx.decls }
   hcons' <- forM hcons $ \hcon -> do 
     let patss = D.patterns <$> D.hconClauses hcon
-    let dataParaDefs = map (\(x,i,t) -> (x,t) :=! VVar x) dat.dataPara
-    let dataParaSp = map (\(x,i,t) -> (VVar x, i)) dat.dataPara
-    let dataParaSpImpl = map (\(x,i,t) -> (VVar x, Impl)) dat.dataPara
+    -- let dataParaDefs = map (\(x,i,t) -> (x,t) :=! VVar x) dat.dataPara
+    -- let dataParaSp = map (\(x,i,t) -> (VVar x, i)) dat.dataPara
+    -- let dataParaSpImpl = map (\(x,i,t) -> (VVar x, Impl)) dat.dataPara
     let con = fromJust $ lookupCon hcon.hconName dat
     let fakeFun = D.Fun
                   { D.funName = hcon.hconName
