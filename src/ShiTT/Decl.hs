@@ -65,3 +65,9 @@ data Clause = Clause
 
 data Rhs = Rhs Raw | NoMatchFor Name 
   deriving Show
+
+
+data HConstructor = HConstructor
+  { hconName :: Name 
+  , hconClauses :: [Clause]
+  }

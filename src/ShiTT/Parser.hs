@@ -24,6 +24,7 @@ import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
 import ShiTT.Meta (allSolved, reset, withoutKRef)
+import Debug.Trace (trace)
 
 
 type PatVars = [Name]
@@ -61,6 +62,12 @@ addData :: Data -> Parser ()
 addData dat = do 
   ctx <- getCtx 
   setCtx $ ctx { decls = insertData dat ctx.decls }
+
+addHData :: HData -> Parser ()
+addHData dat = do 
+  ctx <- getCtx 
+  setCtx $ ctx { decls = insertHData dat ctx.decls }
+
 
 addFun :: Fun -> Parser () 
 addFun fun = do 
@@ -496,7 +503,65 @@ pFun = do
   clauses <- many (pClause (D.funPara preFun))
   pure $ preFun { D.clauses = clauses }
 
----
+-- Parse HIT 
+--------------------------
+{-
+`higher` pDataHeader 
+-}
+
+-- | This will change the context
+pHDataHeader :: Parser Data 
+pHDataHeader = symbol "higher" >> pDataHeader
+
+pHConstructor :: Data -> Parser (Constructor, Maybe D.HConstructor)
+pHConstructor dat = do 
+  con_name <- bar >> pIdent 
+  isFresh con_name 
+  -- parse under the con_pare
+  ctx <- getCtx 
+  keepCtx do 
+    con_para <- symbol ":" >> pTelescope' 
+    if null con_para then 
+      symbol "..." 
+    else 
+      arrow >> symbol "..."
+    ret_ix_r <- many pUnnamedArg 
+    ret_ix_t <- checkSpine ret_ix_r dat.dataIx 
+    let ret_ix sp = -- sp : allImpl dataPara ++ conPara
+          let names = map (\(x,_,_) -> x) (dat.dataPara ++ con_para) 
+              ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
+          in  evalSp ctx' ret_ix_t
+    let con = Constructor
+              { conName = con_name
+              , belongsTo = dat.dataName
+              , conPara = con_para
+              , retIx = ret_ix
+              }
+    isHCon <- (symbol "when" >> pure True) <|> pure False 
+    if isHCon then do 
+      pos <- getSourcePos
+      let ts = allImpl dat.dataPara ++ con.conPara
+      clss <- many $ pClause ts
+      pure (con, Just D.HConstructor 
+                 { D.hconName = con_name 
+                 , D.hconClauses = clss
+                 })
+    else pure (con, Nothing)
+  where evalSp ctx = \case 
+          [] -> [] 
+          ((x, i):xs) -> (eval ctx x, i) : evalSp ctx xs
+
+
+pHData :: Parser (Data, [D.HConstructor])
+pHData = keepCtx do 
+  header <- pHDataHeader 
+  cons <- many (pHConstructor header)
+  pure ( header { dataCons = fst <$> cons }
+       , filterJust (snd <$> cons)
+       ) where filterJust = \case 
+                [] -> []
+                Just x : xs -> x : filterJust xs 
+                Nothing: xs -> filterJust xs 
 
 printLn :: Show t => t -> Parser ()
 printLn = liftIO . putStrLn . show
@@ -505,20 +570,28 @@ putLn :: String -> Parser ()
 putLn = liftIO . putStrLn
 
 pTopLevel :: Parser () 
-pTopLevel = choice [data_type, function, command] where 
+pTopLevel = choice [data_type, function, command, hdata_type] where 
 
   data_type = do 
     dat <- pData
     addData dat
-  
+
+  hdata_type = do
+    dat <- pHData 
+    ctx <- getCtx
+    hdat <- liftIO $ checkHData ctx dat 
+    addHData hdat
+
   function = do 
     fun <- pFun 
     ctx <- getCtx
+    pos <- getSourcePos
     checked_fun <- liftIO $ checkFun ctx fun 
-      `catch` \e -> putStrLn ("In function " ++ fun.funName) >> case e of  
+      `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
         UsedK -> error "Are you using K?"
+        BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
 
     addFun checked_fun
 

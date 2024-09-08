@@ -127,9 +127,8 @@ data HData = HData
 -}
 data HConstructor = HConstructor 
   { hconName     :: Name
-  , hconVars     :: [Name]
   , hconPatterns :: [[Pattern]]
-  , hconClauses  :: Context -> Spine -> Maybe Value
+  , hconClauses  :: Context -> Spine -> Maybe Value -- sp = dataPara ++ conPara
   }
 
 -- | Normal data type to HIT
@@ -145,13 +144,11 @@ mkConDef dat con = case hcon dat.higherCons of
           | x.hconName == con.conName = Just x 
           | otherwise = hcon xs
 
--- TODO: HIT
 lookupCon :: Name -> Data -> Maybe Constructor
 lookupCon n d = go d.dataCons where 
   go [] = Nothing 
   go (c:cs) = if c.conName == n then Just c else go cs
 
--- TODO: HIT
 lookupCon' :: Name -> Context -> Maybe (Data, Constructor)
 lookupCon' con_name (allDataDecls . decls -> datas) = 
   let dat_ls = M.toList $ M.filter (\dat -> con_name `elem` map conName dat.basePart.dataCons) datas in 

@@ -3,7 +3,7 @@
 {-# LANGUAGE BlockArguments #-}
 module ShiTT.Inductive where 
 
-import qualified ShiTT.Decl as R 
+import qualified ShiTT.Decl as D
 import ShiTT.Decl (Pattern(..))
 import ShiTT.Context 
 import qualified ShiTT.Check as C 
@@ -11,10 +11,12 @@ import ShiTT.Eval
 import qualified Data.Map as M 
 import ShiTT.Syntax
 import Control.Exception
-import Control.Monad (forM, when)
+import Control.Monad (forM, when, join)
 import Data.Maybe (fromJust, isJust, isNothing)
 import ShiTT.Meta 
 import Data.IORef (readIORef)
+import Data.Foldable (forM_)
+import Debug.Trace (trace)
 
 match :: Context -> [Pattern] -> Spine -> Maybe [Def]
 match ctx [] [] = Just [] 
@@ -46,6 +48,7 @@ data PMErr
 data CheckError = PMErr PMErr
                 | UnifyE Value Value
                 | UsedK
+                | BoundaryMismatch Name [((Spine, Value), (Spine, Value))]
   deriving (Exception, Show)
 
 -- | f : NameOrder
@@ -144,8 +147,8 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
 --   } 
 checkP :: Context -> [Name] -> [Pattern] -> Telescope -> Either CheckError ([Name], Spine, CheckResult)
 checkP ctx ord [] [] = pure $ (ord, [], CheckResult [] [] [] [])
-checkP ctx ord (p:ps) ((x', i', t'): ts) 
-  | R.icit p == i' = 
+checkP ctx ord (p:ps) sp@((x', i', t'): ts) 
+  | D.icit p == i' = 
     let t = refresh ctx t' in
     case p of 
       PVar x i -> do 
@@ -176,19 +179,19 @@ checkP ctx ord (p:ps) ((x', i', t'): ts)
           _ -> Left . PMErr $ TheGivenTypeIsNotAData t
 
       PInacc n _ -> error "Deprecated" 
-  | otherwise = Left . PMErr $ IcitErr (R.icit p) i' 
+  | otherwise = trace (show ctx ++ show (p:ps) ++ "\n" ++ show sp) $ Left . PMErr $ IcitErr (D.icit p) i' 
 checkP ctx ord _ _ = Left . PMErr $ NumOfPatErr
 
-checkClause :: Context -> R.Fun -> R.Clause -> IO (Either Context (Term, Context))
-checkClause ctx fun (R.Clause pat rhs) = case rhs of
-  R.NoMatchFor x -> do -- Check absurd pattern
+checkClause :: Context -> D.Fun -> D.Clause -> IO (Either Context (Term, Context))
+checkClause ctx fun (D.Clause pat rhs) = case rhs of
+  D.NoMatchFor x -> do -- Check absurd pattern
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here we check patterns
     let rhs_ctx = ctx <: res.resultCtx <: res.extraDef
     case splitCase rhs_ctx (x, Expl, fromJust (getType x res.resultCtx)) of
       Just [] -> pure (Left rhs_ctx)
       Just ps -> throwIO . PMErr $ Matchable x (map (\(x,_,_) -> x) ps)
       Nothing -> throwIO . PMErr $ Matchable x [PVar x Expl]
-  R.Rhs t -> do
+  D.Rhs t -> do
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here we check patterns
     let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef
     let expect_type = refresh rhs_ctx $ fun.funRetType sp 
@@ -202,8 +205,8 @@ mkFunVal ctx ps rhs call_ctx sp = do
   let ctx' = call_ctx <: defs 
   pure $ refresh ctx' $ eval ctx' rhs 
 
-checkClauses :: Context -> R.Fun -> [R.Clause] -> IO (Context -> Spine -> Maybe Value)
-checkClauses ctx fun cls = do 
+checkClauses :: Context -> Bool -> D.Fun -> [D.Clause] -> IO (Context -> Spine -> Maybe Value)
+checkClauses ctx coverChGate fun cls = do 
   rhss <- forM cls $ \c -> do 
     rhs <- checkClause ctx fun c
     pure (c.patterns, rhs)
@@ -214,7 +217,9 @@ checkClauses ctx fun cls = do
           Left ctx -> pure (p,ctx)
           Right (_,ctx) -> pure (p,ctx)
   -- Coverage Check
-  checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
+  
+  when coverChGate $ 
+    checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
 
   let rhss' = flip map rhss \case (p, Left _)  -> (p, Nothing) 
                                   (p, Right x) -> (p, Just x)
@@ -225,7 +230,7 @@ checkClauses ctx fun cls = do
         Nothing -> go vs call_ctx sp 
   pure $ go vs
 
-checkFun :: Context -> R.Fun -> IO Fun 
+checkFun :: Context -> D.Fun -> IO Fun 
 checkFun ctx fun = do 
   let preFun = Fun 
                { funName = fun.funName 
@@ -234,9 +239,9 @@ checkFun ctx fun = do
                , funVal = \ _ _ -> Nothing -- A fake definition, so that we may check the type of the definning function
                }
   let ctx' =ctx { decls = insertFun preFun ctx.decls }
-  val <- checkClauses ctx' fun fun.clauses 
+  val <- checkClauses ctx' True fun fun.clauses 
 
-  -- TODO : Check HIT
+  -- TODO : HIT.Check Boundary
 
   pure $ preFun { funVal = val }
 
@@ -343,7 +348,7 @@ data MatchResult
 
 -- | ctx |- rhs, extraDef in ctx.
 splitMatch1 :: Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
-splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of 
+splitMatch1 ctx t p (v, i) | D.icit p == i = case (p, v) of 
   (PVar x _, VPatVar v []) 
     | isInacc ctx x -> Done [x := VPatVar v []] -- Mark as flexibile
     | otherwise     -> Done [x := VVar v]
@@ -389,6 +394,7 @@ splitMatch1 ctx t p (v, i) | R.icit p == i = case (p, v) of
   _ -> error $ "\n\nimpossible : " ++ show ctx ++ show t ++ " | " ++ show p ++ " | " ++ show (v, i) ++ "\n"
 splitMatch1 _ _ _ _ = error "impossible"
 
+-- | try match, if stuck, return the pattern with splitted variables.
 splitMatch :: Context -> Telescope -> [Pattern] -> Spine -> MatchResult
 splitMatch ctx ts ps vs = case (ts, ps, vs) of 
   ([], [], []) -> Done []
@@ -436,8 +442,46 @@ genInitSp ctx = \case
   [] -> [] 
   (freshName ctx . ('*':) -> x,i,t):ts -> (VVar x, i) : genInitSp (ctx <: freeVar x) ts
 
--- HIT 
+-- HIT (Implementation is shitty)
 --------------------------------------------------------------------------
+{-
+higher inductive BoolX (A : U) : (_ : Bool) -> U where 
+| btrue : (b : Bool) -> ... b
+| bfalse : (b : Bool) -> ... b 
+| bcon : (a b : Bool) -> ... b when b 
+  | true = btrue a          
+  | false = bfalse a        
+-}
+checkHData :: Context -> (Data, [D.HConstructor]) -> IO HData
+checkHData ctx (dat, hcons) = do
+  let ctx' = ctx { decls = insertData dat ctx.decls }
+  hcons' <- forM hcons $ \hcon -> do 
+    let patss = D.patterns <$> D.hconClauses hcon
+    let dataParaDefs = map (\(x,i,t) -> (x,t) :=! VVar x) dat.dataPara
+    let dataParaSp = map (\(x,i,t) -> (VVar x, i)) dat.dataPara
+    let dataParaSpImpl = map (\(x,i,t) -> (VVar x, Impl)) dat.dataPara
+    let con = fromJust $ lookupCon hcon.hconName dat
+    let fakeFun = D.Fun
+                  { D.funName = hcon.hconName
+                  , D.funPara = allImpl dat.dataPara ++ con.conPara 
+                  , D.funRetType = \data_con_para -> 
+                      let data_para = take (length dat.dataPara) data_con_para in 
+                        VCon dat.dataName $ data_para ++ con.retIx data_con_para
+                  , D.clauses = hcon.hconClauses
+                  }
+    fv <- checkClauses ctx' False fakeFun hcon.hconClauses
+    pure HConstructor
+      { hconName = hcon.hconName
+      , hconPatterns = patss 
+      , hconClauses = \ctx sp -> case fv ctx sp of 
+          Nothing -> Just $ VCon hcon.hconName sp
+          Just v -> Just v
+      }
+  pure HData 
+    { basePart = dat
+    , higherCons = hcons'
+    } 
+
 
 {-
 
@@ -454,22 +498,78 @@ data HConstructor = HConstructor
 
 -}
 
--- | equalPair _ intData
---   => [(neg zero, pos zero)]
+-- asValue :: [Def] -> Int -> Pattern -> ((Value, Icit), [Def])
+-- asValue fvs nameCount = \case 
+--   PVar x i -> ((VVar x, i), freeVar (freshName (emptyCtx <: fvs) $ '*':show nameCount ++ x) : fvs)
+--   PCon con sp i -> 
+--     let (spv, fvs', cnt) = foldr 
+--                       (\p (rest, c, cnt) -> let (v, c') = asValue c cnt p in (v : rest, c', cnt + 1)) 
+--                       ([], fvs, nameCount + 1)
+--                       sp 
+--     in ((VCon con spv , i), fvs')
+--   PInacc _ _ -> error "Deprecated"
 
-asValue :: [Def] -> Pattern -> ((Value, Icit), [Def])
-asValue fvs = \case 
-  PVar x i -> ((VVar x, i), freeVar x : fvs)
-  PCon con sp i -> 
-    let (spv, fvs') = foldr 
-                      (\p (rest, c) -> let (v, c') = asValue c p in (v : rest, c')) 
-                      ([], fvs) 
-                      sp 
-    in ((VCon con spv , i), fvs')
-  PInacc _ _ -> error "Deprecated"
+-- {-
+-- higher inductive A : U where 
+-- | con1 : (x y : T) -> ... 
+-- | con2 : (n : N) (x y : T) -> ... when x y
+--   | x y -> con1 x y
+--   | ...
+
+-- -}
+
+-- -- | equalPair _ intData
+-- --   => [(neg zero, pos zero, [])]
+-- --   equalPair _ AData
+-- --   => [(con2 n x y, con1 n x y, A)]
+-- -- Don't forget renaming
+-- equalPair :: Context -> HData -> [(Value, Value, VType)]
+-- equalPair ctx hdat = do
+--   hcon <- hdat.higherCons 
+--   let con       = fromJust $ lookupCon hcon.hconName hdat.basePart
+--   let mkSp      = (\(x,i,_) -> (VVar x, i))
+--   pats <- hcon.hconPatterns
+--   let var_defs  = map 
+--                     (\(name, pat) -> 
+--                       let (v , d) = asValue [] 1 pat in 
+--                         (name := fst v, d)) 
+--                   $ zip hcon.hconVars pats 
+--   let defs      = join $ map snd var_defs
+--   let data_para = mkSp <$> hdat.basePart.dataPara
+--   let args      = map (\(v,_) -> (v,Impl)) data_para ++ substSp' ctx (map fst var_defs) (mkSp <$> con.conPara)
+--   let left      = VCon con.conName args
+--   let right     = fromJust $ hcon.hconClauses (ctx <: defs) args
+--   pure (left, right, VCon hdat.basePart.dataName (data_para ++ con.retIx args))
 
 
-equalPair :: Context -> HData -> [(Value, Value)]
-equalPair ctx hdat = do
-  hcon <- hdat.higherCons 
-  undefined
+-- checkBoundary :: Context -> Fun -> IO () 
+-- checkBoundary ctx fun = forM_ (genInitSp ctx (show <$> [1 .. length fun.funPara]) fun.funPara) \ twosp -> do 
+--     goBoundary ctx fun (fst <$> twosp, snd <$> twosp)
+--   where 
+--     genInitSp :: Context -> [Name] -> Telescope -> [[((Value, Icit), (Value, Icit))]]
+--     genInitSp ctx names ts = do 
+--       (name, (x,i,t)) <- zip names ts 
+--       case t of 
+--         (VCon data_name data_args) -> case M.lookup data_name ctx.decls.allDataDecls of 
+--           Nothing -> do 
+--             let x = freshName ctx ('*':name)  
+--             pure [((VVar x, i), (VVar x, i))]
+--           Just hdat -> do 
+--             (v1,v2,ty) <- equalPair ctx hdat
+--             pure [((v1, i), (v2,i))]
+--         _ -> do 
+--           let x = freshName ctx ('*':name)  
+--           pure [((VVar x, i), (VVar x, i))]
+
+-- -- check with equalPair, if stuck, split it -- TODO : split
+-- -- goBoundary check if each spine apply on fun are equal, if stuck, return new spines 
+-- goBoundary :: Context -> Fun -> (Spine, Spine) -> IO (Either [(Spine, Spine)] ())
+-- goBoundary ctx fun (sp1, sp2) = 
+--   case fun.funVal ctx sp1 of 
+--     Just v1 -> case fun.funVal ctx sp2 of 
+--       Just v2 -> 
+--         do 
+--           fmap pure (C.unify ctx v1 v2) 
+--         `catch` \ C.UnifyError -> throwIO $ BoundaryMismatch fun.funName [((sp1, v1), (sp2, v2))] 
+--       Nothing -> error "TODO" -- TODO : sp2 stucked
+--     Nothing -> error "TODO" -- TODO : sp1 stucked

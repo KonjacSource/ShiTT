@@ -44,7 +44,12 @@ eval ctx@(env -> env) = \case
     Nothing -> VPatVar x [] -- they are free-able
   ---
   InsertedMeta m bds  ->
-    let avail_vars = M.filterWithKey (\ name _ -> fromJust (M.lookup name bds) == Bound) env in 
+    let avail_vars = M.filterWithKey 
+                      (\ name _ -> case M.lookup name bds of 
+                                     Just v -> v == Bound
+                                     Nothing -> error $ name ++ "\n" ++ show bds ++ show m 
+                      ) 
+                      env in 
     vAppSp (vMeta m) (map (,Expl) (snd <$> M.toList avail_vars)) 
     -- I don't care the order, since I'm using HOAS
 
@@ -138,7 +143,7 @@ vMeta m =
     Unsolved -> VMeta m
     Solved v -> v
 
-vCall :: Context -> Fun -> Telescope ->  Value
+vCall :: Context -> Fun -> Telescope -> Value
 vCall ctx f ls = helper ctx [] ls 
   where 
     helper ctx' arg [] = pushDone f ctx' arg
@@ -148,7 +153,7 @@ vCall ctx f ls = helper ctx [] ls
 --   where helper arg [] = f arg
 --         helper arg ((x,i,t):xs) = VLam x i (\ v -> helper (arg >>> (v, i)) xs)
 
-pushFun :: Context -> Value ->  Value 
+pushFun :: Context -> Value -> Value 
 pushFun ctx v@(VFunc name sp) = do 
   let fun = fromJust $ M.lookup name ctx.decls.allFunDecls
   case fun.funVal ctx sp of 
@@ -157,7 +162,7 @@ pushFun ctx v@(VFunc name sp) = do
 pushFun ctx v = v 
 
 -- This might be unnecessary
-pushDone :: Fun -> Context -> Spine ->  Value 
+pushDone :: Fun -> Context -> Spine -> Value 
 pushDone fun@(funVal -> f) ctx sp = do 
   case f ctx sp of 
     Nothing -> VFunc fun.funName sp 

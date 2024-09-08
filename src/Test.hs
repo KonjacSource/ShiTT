@@ -146,6 +146,7 @@ testDecls
   = insertFun addFun 
   $ insertHData intData
   $ insertData natData 
+  $ insertData boolData
   $ insertData vecData 
   $ insertData idData 
   $ insertData imAdd
@@ -456,7 +457,6 @@ intData = HData
   , higherCons = 
     [ HConstructor 
       { hconName = "neg"
-      , hconVars = ["n"]
       , hconPatterns = [ [PCon "zero" [] Expl] ]
       , hconClauses = \ctx -> \case 
           [(VCon "zero" [], Expl)] -> Just (VCon "pos" [(VCon "zero" [], Expl)])
@@ -464,6 +464,76 @@ intData = HData
       }
     ]
   }
+
+boolData :: Data 
+boolData = Data 
+  { dataName = "Bool"
+  , dataPara = [] 
+  , dataIx = []
+  , dataCons = 
+    [ Constructor
+      { conName = "true"
+      , belongsTo = "Bool"
+      , conPara = []
+      , retIx = \_ -> []
+      }
+    , Constructor
+      { conName = "false"
+      , belongsTo = "Bool"
+      , conPara = []
+      , retIx = \_ -> []
+      }
+    ]
+  }
+
+{-
+higher inductive BoolX (A : U) : (_ : Bool) -> U where 
+| btrue : (b : Bool) -> ... b
+| bfalse : (b : Bool) -> ... b 
+| bcon : (a b : Bool) -> ... b when 
+  | a true = btrue a          
+  | a false = bfalse a        
+-}
+-- boolXData :: HData
+-- boolXData = HData
+--   { basePart = Data 
+--     { dataName = "BoolX"
+--     , dataPara = [("A", Expl, VU)]
+--     , dataIx = [("_", Expl, VCon "Bool" [])]
+--     , dataCons = 
+--       [ Constructor
+--         { conName = "btrue"
+--         , belongsTo = "BoolX"
+--         , conPara = [("b", Expl, VCon "Bool" [])]
+--         , retIx = \[_,b] -> [b]
+--         }
+--       , Constructor
+--         { conName = "bfalse"
+--         , belongsTo = "BoolX"
+--         , conPara = [("b", Expl, VCon "Bool" [])]
+--         , retIx = \[_,b] -> [b]
+--         }
+--       , Constructor 
+--         { conName = "bcon"
+--         , belongsTo = "BoolX"
+--         , conPara = [("a", Expl, VCon "Bool" []), ("b", Expl, VCon "Bool" [])]
+--         , retIx = \[_,_,b] -> [b]
+--         }
+--       ]
+--     }
+--   , higherCons = 
+--     [ HConstructor 
+--       { hconName = "bcon"
+--       , hconPatterns = [ [PCon "true" [] Expl]
+--                        , [PCon "false" [] Expl]]
+--       , hconClauses = \ctx -> \case 
+--           [_, a, (VCon "true" [], Expl)] -> Just $ VCon "btrue" [(VVar "A", Impl)  , a] 
+--           [_, a, (VCon "false" [], Expl)] -> Just $ VCon "bfalse" [(VVar "A", Impl), a]
+--           sp -> error (show sp) $ Just $ VCon "bcon" sp 
+--       }
+--     ]
+--   }
+
 
 -- Coverage check will forbid to do pattern match on this, but checkP won't
 intervalData :: Data 
