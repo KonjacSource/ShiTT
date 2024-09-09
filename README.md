@@ -35,6 +35,7 @@ ghci> run "Eaxmple.shitt"
 
 ## TODO
 
+- [ ] REPL
 - [ ] Operators
 - [ ] Termination checking
 - [ ] Positive checking for data types

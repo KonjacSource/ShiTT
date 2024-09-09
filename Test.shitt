@@ -1,15 +1,26 @@
-data N : U where  
-| zero : ...  
-| succ : (pre : N) -> ...  
+data Bool : U where 
+| true : ... 
+| false : ...
 
-higher inductive Int : U where 
-| pos : (n : N) -> ... 
-| neg : (n : N) -> ... 
+unmatchable data Interval : U where 
+| i0 : ... 
+| i1 : ...
+
+-- This is ok
+def reflTrue (i : Interval) : Bool 
+| i = true
+
+-- -- This is error
+-- def trueToFalse (i : Interval) : Bool
+-- | i0 = true 
+-- | i1 = false
+
+higher inductive S1 : U where 
+| base : ... 
+| loop : (i : Interval) -> ... 
     when 
-    | zero = pos zero
+    | i0 = base 
+    | i1 = base
 
-#eval neg zero -- pos zero
+#eval loop i0
 
-def abs (n : Int) : N where 
-| pos n = n
-| neg n = n 

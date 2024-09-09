@@ -392,7 +392,7 @@ splitTest4 = splitCase (testContext <: ("m", natType) :=! VPatVar "m" []) ("v", 
 
 --  Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
 
-matchTest1 = I.splitMatch1 testContext2 ("_", Expl, natType) (PCon "zero" [] Expl) (VVar "x" ,Expl)
+matchTest1 = I.splitMatch1 testContext2 [] ("_", Expl, natType) (PCon "zero" [] Expl) (VVar "x" ,Expl)
 
 -- matchTest1 = trace (show ps) $ I.match' (testContext2 <: res.typeLevelDef) rhs_ctx ts ps vs
 --   where 

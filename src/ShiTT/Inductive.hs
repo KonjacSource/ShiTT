@@ -216,10 +216,11 @@ checkClauses ctx coverChGate fun cls = do
         case t of 
           Left ctx -> pure (p,ctx)
           Right (_,ctx) -> pure (p,ctx)
+
   -- Coverage Check
-  
-  when coverChGate $ 
-    checkCoverage fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
+  when coverChGate $ do 
+    unmatchables <- readIORef allUnmatchableTypes
+    checkCoverage unmatchables fun.funName fun.funPara patsWithRes (genInitSp ctx fun.funPara)
 
   let rhss' = flip map rhss \case (p, Left _)  -> (p, Nothing) 
                                   (p, Right x) -> (p, Just x)
@@ -240,9 +241,20 @@ checkFun ctx fun = do
                }
   let ctx' =ctx { decls = insertFun preFun ctx.decls }
   val <- checkClauses ctx' True fun fun.clauses 
-
   -- TODO : HIT.Check Boundary
+  pure $ preFun { funVal = val }
 
+
+checkAxiom :: Context -> D.Fun -> IO Fun 
+checkAxiom ctx fun = do 
+  let preFun = Fun 
+               { funName = fun.funName 
+               , funPara = fun.funPara
+               , funRetType = fun.funRetType
+               , funVal = \ _ _ -> Nothing -- A fake definition, so that we may check the type of the definning function
+               }
+  let ctx' =ctx { decls = insertFun preFun ctx.decls }
+  val <- checkClauses ctx' False fun fun.clauses
   pure $ preFun { funVal = val }
 
 unify1 :: NameOrder -> Context -> [Def] -> Value -> Value -> Either CheckError [Def]
@@ -347,15 +359,27 @@ data MatchResult
   deriving Show 
 
 -- | ctx |- rhs, extraDef in ctx.
-splitMatch1 :: Context -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
-splitMatch1 ctx t p (v, i) | D.icit p == i = case (p, v) of 
+splitMatch1 :: Context -> [Name] -> (Name, Icit, VType) -> Pattern -> (Value, Icit) -> MatchResult
+splitMatch1 ctx unmatchables (_, _, VCon ty_name []) p (v, i) 
+  | D.icit p == i && ty_name `elem` unmatchables
+  = case (p, v) of 
+      (PVar x _, VPatVar v []) 
+        | isInacc ctx x  -> Done [x := VPatVar v []] -- Mark as flexibile
+        | otherwise      -> Done [x := VVar v]
+      (PVar x _, VVar v)  
+        | isInacc ctx x  -> Done [x := VPatVar v []]
+        | otherwise      -> Done [x := VVar v]
+      (PVar x _, v)      -> Done [x := v]
+      _                  -> error "Trying match an unmatchable"
+
+splitMatch1 ctx unmatchables t p (v, i) | D.icit p == i = case (p, v) of 
   (PVar x _, VPatVar v []) 
-    | isInacc ctx x -> Done [x := VPatVar v []] -- Mark as flexibile
-    | otherwise     -> Done [x := VVar v]
-  (PVar x _, VVar v) 
-    | isInacc ctx x -> Done [x := VPatVar v []]
-    | otherwise     -> Done [x := VVar v]
-  (PVar x _, v) -> Done [x := v]
+    | isInacc ctx x  -> Done [x := VPatVar v []] -- Mark as flexibile
+    | otherwise      -> Done [x := VVar v]
+  (PVar x _, VVar v)  
+    | isInacc ctx x  -> Done [x := VPatVar v []]
+    | otherwise      -> Done [x := VVar v]
+  (PVar x _, v)      -> Done [x := v]
   (PCon con_name ps _, VCon con_name' vs) -- note that length ps /= length vs, since vs includes data parameters
     | con_name == con_name' -> 
         -- 1. get data definition and constructor definition
@@ -371,6 +395,7 @@ splitMatch1 ctx t p (v, i) | D.icit p == i = case (p, v) of
         -- 3. try match vs against ps under the modified teles
         in case splitMatch 
                   ctx
+                  unmatchables 
                   teles
                   ps 
                   arg_vs
@@ -392,17 +417,17 @@ splitMatch1 ctx t p (v, i) | D.icit p == i = case (p, v) of
         (_,v,_) <- poss 
         pure [v]
   _ -> error $ "\n\nimpossible : " ++ show ctx ++ show t ++ " | " ++ show p ++ " | " ++ show (v, i) ++ "\n"
-splitMatch1 _ _ _ _ = error "impossible"
+splitMatch1 _ _ _ _ _ = error "impossible"
 
 -- | try match, if stuck, return the pattern with splitted variables.
-splitMatch :: Context -> Telescope -> [Pattern] -> Spine -> MatchResult
-splitMatch ctx ts ps vs = case (ts, ps, vs) of 
+splitMatch :: Context -> [Name] -> Telescope -> [Pattern] -> Spine -> MatchResult
+splitMatch ctx unmatchables ts ps vs = case (ts, ps, vs) of 
   ([], [], []) -> Done []
   (t:ts, p:ps, v:vs) -> 
-    case splitMatch1 ctx t p v of 
+    case splitMatch1 ctx unmatchables t p v of 
       Failed -> Failed 
       -- 
-      Done defs -> case splitMatch (ctx <: defs) ts ps vs of 
+      Done defs -> case splitMatch (ctx <: defs) unmatchables ts ps vs of 
         Failed -> Failed 
         Done defs' -> Done $ defs ++ defs' 
         Stucked poss -> Stucked do 
@@ -416,13 +441,13 @@ splitMatch ctx ts ps vs = case (ts, ps, vs) of
   _ -> error $ "impossible : " ++ show ctx ++ show ts ++ "\n" ++ show ps ++ "\n" ++ show vs 
 
 
-travPattern :: Telescope -> [([Pattern], Context)] -> Spine -> Maybe [Spine]
-travPattern ts [] sp = Just [sp]  -- passed
-travPattern ts pats@((ps,rhs_ctx): rest) sp = case splitMatch rhs_ctx ts ps sp of 
-  Failed -> travPattern ts rest sp 
+travPattern :: [Name] -> Telescope -> [([Pattern], Context)] -> Spine -> Maybe [Spine]
+travPattern unmatchables ts [] sp = Just [sp]  -- passed
+travPattern unmatchables ts pats@((ps,rhs_ctx): rest) sp = case splitMatch rhs_ctx unmatchables ts ps sp of 
+  Failed -> travPattern unmatchables ts rest sp 
   Done _ -> Nothing 
   Stucked new_sps -> 
-    let res = map (travPattern ts pats) new_sps
+    let res = map (travPattern unmatchables ts pats) new_sps
     in  if all isNothing res then 
           Nothing
         else Just do
@@ -431,9 +456,9 @@ travPattern ts pats@((ps,rhs_ctx): rest) sp = case splitMatch rhs_ctx ts ps sp o
             Nothing -> [] 
             Just sp -> sp
 
-checkCoverage :: Name -> Telescope -> [([Pattern], Context)] -> Spine -> IO () 
-checkCoverage fun_name ts ps sp = do 
-  case travPattern ts ps sp of 
+checkCoverage :: [Name] -> Name -> Telescope -> [([Pattern], Context)] -> Spine -> IO () 
+checkCoverage unmatchables fun_name ts ps sp = do 
+  case travPattern unmatchables ts ps sp of 
     Nothing -> pure () 
     Just sp -> putStrLn ("Warning: Missing patterns on function " ++ fun_name ++ "\n" ++ show sp)
 
@@ -481,22 +506,6 @@ checkHData ctx (dat, hcons) = do
     { basePart = dat
     , higherCons = hcons'
     } 
-
-
-{-
-
-data HData = HData 
-  { basePart :: Data 
-  , higherCons :: [HConstructor]
-  } 
-
-data HConstructor = HConstructor 
-  { hconName     :: Name
-  , hconVars     :: [Name]
-  , hconClauses  :: Context -> Spine -> Maybe Value
-  }
-
--}
 
 -- asValue :: [Def] -> Int -> Pattern -> ((Value, Icit), [Def])
 -- asValue fvs nameCount = \case 

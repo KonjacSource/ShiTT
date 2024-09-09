@@ -5,6 +5,8 @@ import ShiTT.Syntax
 import Data.IORef
 import System.IO.Unsafe
 
+-- Meta Context
+----------------
 data MetaEntry = Unsolved | Solved Value
   deriving Show
 
@@ -45,5 +47,8 @@ allSolved = do
 withoutKRef :: IORef Bool 
 withoutKRef = runIO $ newIORef False 
 
-withoutK :: Bool 
-withoutK = runIO $ readIORef withoutKRef
+-- Other Global
+---------------
+
+allUnmatchableTypes :: IORef [Name]
+allUnmatchableTypes = runIO $ newIORef []

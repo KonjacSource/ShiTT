@@ -23,7 +23,7 @@ import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
-import ShiTT.Meta (allSolved, reset, withoutKRef)
+import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
 
 
 type PatVars = [Name]
@@ -118,7 +118,11 @@ inCtx name = do
 
 
 keywords :: [String]
-keywords = ["U", "let", "in", "fun", "λ", "data", "where", "def", "fun", "nomatch", "auto", "traceContext", "inductive", "higher", "when"]
+keywords =  [ "U", "let", "in", "fun", "λ"
+            , "data", "where", "def", "fun"
+            , "nomatch", "auto", "traceContext"
+            , "inductive", "higher", "when"
+            , "unmatchable", "axiom" ]
 
 pIdent :: Parser Name
 pIdent = do
@@ -275,7 +279,12 @@ Each constructor must give all indexes.
 --   Then return the fake definition.
 pDataHeader :: Parser Data
 pDataHeader = do
+  isUnmatchable <- (symbol "unmatchable" >> pure True) <|> pure False 
   data_name <- (symbol "data" <|> symbol "inductive") >> pIdent
+  
+  when isUnmatchable $ do 
+    liftIO $ modifyIORef allUnmatchableTypes (data_name:)
+
   isFresh data_name
   data_para <- pTelescope' -- Adding data parameters to context.
   data_ix <- symbol ":" >> pTelescope 
@@ -581,11 +590,13 @@ pTopLevel = choice [data_type, function, command, hdata_type] where
     hdat <- liftIO $ checkHData ctx dat 
     addHData hdat
 
-  function = do 
+  function = do
+    isAxiom <- (symbol "axiom" >> pure True) <|> pure False
+    let checker = if isAxiom then checkAxiom else checkFun
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
-    checked_fun <- liftIO $ checkFun ctx fun 
+    checked_fun <- liftIO $ checker ctx fun 
       `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
