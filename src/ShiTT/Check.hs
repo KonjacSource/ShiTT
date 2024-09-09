@@ -170,7 +170,7 @@ check ctx t v = case (t, force v) of
     check (ctx {pos = Just pos}) t a
   ---
   (RPrintCtx t, a) -> do 
-    trace (show ctx) $ trace ("Goal: " ++ show v) $ do 
+    trace (show ctx) $ trace ("Goal: " ++ show (refresh ctx v)) $ do 
     t' <- check ctx t a
     pure $ PrintCtx t'
   ---

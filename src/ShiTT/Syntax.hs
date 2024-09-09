@@ -124,7 +124,8 @@ instance Show Value where
         VCon x sp -> {-"!con!" ++-} pp is_top (VRig x sp)
         VFlex m sp -> pp is_top (VRig ('?':show m) sp)
         VFunc x sp -> {-"!fun!" ++-} pp is_top (VRig x sp)
-        VPatVar x sp -> "!pat!" ++ pp is_top (VRig x sp)
+        VPatVar ('-':x) sp -> {-"!pat!" ++-} pp is_top (VRig x sp)
+        VPatVar x sp -> {-"!pat!" ++-} pp is_top (VRig x sp)
         VPi x Expl t b -> inParen $ "Pi (" ++ x ++ ":" ++ pp True t ++ "). " ++ pp True (b (VVar x))
         VPi x Impl t b -> inParen $ "Pi {" ++ x ++ ":" ++ pp True t ++ "}. " ++ pp True (b (VVar x))
         VU -> "U"

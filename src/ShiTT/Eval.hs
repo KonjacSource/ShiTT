@@ -30,7 +30,7 @@ eval ctx@(env -> env) = \case
   Let x _ t u         -> eval (ctx <: x := eval ctx t) u
   ---
   Func name           -> case M.lookup name ctx.decls.allFunDecls of 
-    Nothing -> error $ "Unknow identifier: " ++ name ++ "\n" ++ show ctx.decls.allFunDecls
+    Nothing -> VFunc name []
     Just f  -> vCall ctx f f.funPara
   ---
   U                   -> VU 
@@ -47,7 +47,7 @@ eval ctx@(env -> env) = \case
     let avail_vars = M.filterWithKey 
                       (\ name _ -> case M.lookup name bds of 
                                      Just v -> v == Bound
-                                     Nothing -> error $ name ++ "\n" ++ show bds ++ show m 
+                                     Nothing -> False -- error $ show ctx ++ "\n" ++ name ++ "\n" ++ show bds ++ show m 
                       ) 
                       env in 
     vAppSp (vMeta m) (map (,Expl) (snd <$> M.toList avail_vars)) 
@@ -123,7 +123,8 @@ vApp t u i = case t of
   VFlex m sp -> VFlex m (sp >>> (u, i))
   VRig  x sp -> VRig  x (sp >>> (u, i))
   VPatVar x sp -> VPatVar x (sp >>> (u, i))
-  _ -> error "Impossible"
+  VFunc x sp -> VFunc x (sp >>> (u, i))
+  _ -> error $ show (t, u, i) ++ "Impossible"
 
 vAppSp :: Value -> Spine -> Value 
 vAppSp t sp = revCase sp 

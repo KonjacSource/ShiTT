@@ -126,8 +126,7 @@ checkCon ctx ord (con, ps) (dat, dat_args) = do
   -- infer the data index 
   let ret_ix = con.retIx (allImpl dat_para ++ psv) 
   -- unify inferred data index with dat_ix  
-  when (runIO $ readIORef withoutKRef) do 
-    unifySp (listOrder ord') ctx [] ret_ix ret_ix >> pure ()
+
   defs <- unifySp (listOrder ord') ctx [] ret_ix dat_ix
 
   pure ( ord'
@@ -191,6 +190,7 @@ checkClause ctx fun (D.Clause pat rhs) = case rhs of
       Just [] -> pure (Left rhs_ctx)
       Just ps -> throwIO . PMErr $ Matchable x (map (\(x,_,_) -> x) ps)
       Nothing -> throwIO . PMErr $ Matchable x [PVar x Expl]
+
   D.Rhs t -> do
     (_,sp,res) <- execCheck $ checkP ctx [] pat fun.funPara -- here we check patterns
     let rhs_ctx = ctx <: res.resultCtx <: res.freevarsRhs <: res.extraDef

@@ -1,0 +1,199 @@
+#withoutK
+
+-- Basic Types and Functions
+------------------------------------------
+axiom def sorry {A: U} : A 
+
+data Bool : U where 
+| true : ... 
+| false : ...
+
+def not (_ : Bool) : Bool
+| true = false 
+| fasle = true
+
+unmatchable data I : U where 
+| left : ... 
+| right : ...
+
+axiom def max (_ _ : I) : I 
+| left left = left 
+| _ _ = right 
+
+axiom def min (_ _ : I) : I 
+| right right = right 
+| _ _ = left
+
+axiom def rev (_ : I) : I 
+| left = right
+| right = left
+
+higher inductive S1 : U where 
+| base : ... 
+| loop : (i : I) -> ... 
+    when 
+    | left = base 
+    | right = base
+
+data N : U where 
+| zero : ... 
+| succ : (_ : N) -> ...
+
+higher inductive Int : U where 
+| pos : (_ : N) -> ...
+| neg : (_ : N) -> ...
+    when
+    | zero = pos zero
+
+def succInt (n : Int) : Int where 
+| (pos n)        = pos (succ n) 
+| (neg zero)     = pos (succ zero)
+| (neg (succ n)) = neg n
+
+def predInt (n : Int) : Int where 
+| (pos zero)     = neg (succ zero)
+| (pos (succ n)) = pos n 
+| (neg n)        = neg (succ n)
+
+def id {A : U} (x : A) : A 
+| x = x
+
+def comp {A B C : U} (f : B -> C) (g : A -> B) : A -> C 
+| f g = \ x . f (g x)
+
+-- Id 
+------------------------------------------
+
+data Id {A : U} : (_ _ : A) -> U where 
+| refl : {x : A} -> ... x x
+
+axiom def funext {A B : U} {f g : A -> B} (_ : (x : A) -> Id (f x) (g x)) : Id f g
+
+fun symId {A : U} {x y : A} (p : Id x y) : Id y x where 
+| (refl {_}) = refl
+
+fun transId {A : U} {x y z : A} (_ : Id x y) (_ : Id y z) : Id x z where 
+| (refl {_}) (refl {_}) = refl
+
+fun congId {A B : U} {x y : A} (f : A -> B) (p : Id x y) : Id (f x) (f y) where 
+| f (refl {_}) = refl 
+
+-- Some HoTT 
+------------------------------------------
+inductive Path {A : U} : (_ _ : A) -> U where 
+| mkP : (f : I -> A) -> ... (f left) (f right)
+
+def at {A : U} {x y : A} (p : Path x y) (_ : I) : A
+| (mkP f) i = f i
+
+def atL {A : U} {x y : A} (p : Path x y) : Id (at p left) x
+| (mkP f) = refl
+
+def atR {A : U} {x y : A} (p : Path x y) : Id (at p right) y
+| (mkP f) = refl
+
+def idp {A : U} {x : A} : Path x x
+| {x = x} = mkP (\i . x)
+
+def inverse {A : U} {x y : A} (p : Path x y) : Path y x where 
+| (mkP f) = mkP (\i. f (rev i))
+
+axiom def J {A : U} {x : A} {y : A} (P : (y1 : A) -> Path x y1 -> U) (d : P x idp) (p : Path x y) : P y p 
+axiom def JBeta {A : U} {x : A} (P : (y1 : A) -> Path x y1 -> U) (d : P x idp) : Id (J P d idp) d
+
+def transport {A : U} {x y : A} (P : A -> U) (p : Path x y) : (P x) -> (P y)
+| {x = x} P p = J (\ y _ . P x -> P y) id p
+
+def transportId {A B : U} (p : Path A B) : A -> B
+| {A} {B} p = transport {U} {A} {B} id p 
+
+def ap {A B : U} {x y : A} (f : A -> B) (p : Path x y) : Path (f x) (f y) 
+| {x = x} f p = J (\ y _ . Path (f x) (f y)) idp p
+
+axiom def apPath {A B : U} {x y : A} (f : A -> B) (p : Path x y) (i : I) : Id (at (ap f p) i) (f (at p i)) 
+
+-- HoTT Book Lemma 2.3.10, There is Path, here is Id for convenience
+axiom def transportAp 
+  {A : U} {x y : A} 
+  (f : A -> U) (p : Path x y) (u : f x)
+: Id (transport f p u) (transportId (ap f p) u)
+
+-- UA 
+------------------------------------------
+data Iso (A B : U) : U where 
+| mkIso : (f : A -> B) 
+          (g : B -> A) 
+          (invR : (b : B) -> Id (f (g b)) b)
+          (invL : (a : A) -> Id (g (f a)) a)
+        -> ...
+
+def isoTo {A B : U} (iso : Iso A B) : A -> B 
+| (mkIso f _ _ _) = f 
+
+def isoFrom {A B : U} (iso : Iso A B) : B -> A 
+| (mkIso _ g _ _) = g
+axiom def ua     {A B : U} (iso : Iso A B) : Path A B
+axiom def uaBeta {A B : U} (iso : Iso A B) : Id (transportId (ua iso)) (isoTo iso)
+
+def uaBetaApp {A B : U} (iso : Iso A B) (x : A) : Id (transportId (ua iso) x) (isoTo iso x)
+| iso x = congId (\ f . f x) (uaBeta iso)
+
+-- Some Iso
+------------------------------------------
+def notInv (b : Bool) : Id (not (not b)) b 
+| true  = refl
+| false = refl
+
+def notIso : Iso Bool Bool
+| = mkIso not not notInv notInv
+
+def succPred (n : Int) : Id (succInt (predInt n)) n 
+| (pos (succ n)) = refl
+| (pos zero)     = refl
+| (neg n)        = refl
+
+def predSucc (n : Int) : Id (predInt (succInt n)) n 
+| (pos n)        = refl
+| (neg zero)     = refl
+| (neg (succ n)) = refl
+
+def succIso : Iso Int Int 
+| = mkIso succInt predInt succPred predSucc
+
+-- true transport to false
+------------------------------------------
+def notPath : Path Bool Bool 
+| = ua notIso
+
+def transportIsNot : Id (transportId notPath) not
+| = uaBeta notIso 
+
+def true2false : _
+| = congId (\ x . x true) transportIsNot
+
+-- S1
+------------------------------------------
+
+def recS1 {B : U} (b : B) (l : Path b b) (_ : S1) : B
+| b l base = b 
+| b l (loop i) = at l i
+
+def loopPath : Path base base 
+| = mkP loop
+
+def baseCmp {B : U} (b : B) (l : Path b b) : Id (recS1 b l base) b
+| b l = refl
+
+def loopCmp1 {B : U} (b : B) (l : Path b b) : (i : I) -> Id ((recS1 b l) (loop i)) (at l i)
+| b l = \ i . refl
+
+def apLoopPath {B : U} (b : B) (l : Path b b) 
+               (i : I) 
+: Id 
+    (at (ap (recS1 b l) loopPath) i) 
+    ((recS1 b l) (loop i))
+| b l i = apPath (recS1 b l) loopPath i
+
+-- too tried to prove
+axiom def loopCmp {B : U} (b : B) (l : Path b b) : Id {Path b b} (ap (recS1 b l) loopPath) l
+
