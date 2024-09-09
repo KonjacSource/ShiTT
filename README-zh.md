@@ -202,7 +202,6 @@ higher inductive S1 : U where
     | i1 = base
 ```
 
-
 ### 定理证明?
 
 ShiTT 不是一个 PA, 所以这里直接使用了 Type in Type, 并且将来可能考虑不添加终止检查.
