@@ -139,6 +139,39 @@ higher inductive Int : U where
 #eval neg zero -- = pos zero
 ```
 
+### Axiom
+
+Define an axiom like this,
+
+```haskell
+axiom def lem {A : U} : Either A (A -> Void)
+```
+
+### Unmatchable
+
+```haskell
+unmatchable data Interval : U where 
+| i0 : ... 
+| i1 : ...
+
+-- This is ok
+def reflTrue (i : Interval) : Bool 
+| i = true
+
+-- This is an error, when you try to match on Interval
+def trueToFalse (i : Interval) : Bool
+| i0 = true 
+| i1 = false
+
+-- This is ok, since "when clause" won't do those check.
+higher inductive S1 : U where 
+| base : ... 
+| loop : (i : Interval) -> ... 
+    when 
+    | i0 = base 
+    | i1 = base
+```
+
 ## Other Syntax
 
 ### Let Binding

@@ -165,10 +165,43 @@ higher inductive Int : U where
 | neg : (n : N) -> ... 
     when 
     | zero = pos zero
-
 #infer Int -- : U 
 #eval neg zero -- = pos zero
 ```
+
+### 公理
+
+这样定义公理
+
+```haskell
+axiom def lem {A : U} : Either A (A -> Void)
+```
+
+### 不可匹配类型
+
+```haskell
+unmatchable data Interval : U where 
+| i0 : ... 
+| i1 : ...
+
+-- 这没问题
+def reflTrue (i : Interval) : Bool 
+| i = true
+
+-- 这里产生一个错误, 因为试图对 Interval 进行匹配
+def trueToFalse (i : Interval) : Bool
+| i0 = true 
+| i1 = false
+
+-- 但这种定义是可以的, 因为 when 子句不会进行完全性检查
+higher inductive S1 : U where 
+| base : ... 
+| loop : (i : Interval) -> ... 
+    when 
+    | i0 = base 
+    | i1 = base
+```
+
 
 ### 定理证明?
 
