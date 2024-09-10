@@ -37,13 +37,13 @@ ghci> run "Eaxmple.shitt"
 - [x] 无K的模式匹配
 - [x] [语法高亮](https://github.com/KonjacSource/shitt-highlight)
 - [x] 高阶归纳类型(暂无边界检查)
-- [ ] REPL
+- [x] REPL
+- [x] 模块系统(非常逊)
 - [ ] 运算符
 - [ ] 停机检查
 - [ ] 归纳类型的极性检查
 - [ ] 优化输出
 - [ ] 优化错误提示
-- [ ] 模块系统
 - [ ] 输入输出
 - [ ] 编译器后端
 - [ ] 类型类
