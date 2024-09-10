@@ -24,6 +24,7 @@ import Control.Category ((>>>))
 import Control.Exception hiding (try)
 import Test (testContext2)
 import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
+import Data.List (dropWhileEnd)
 
 
 type PatVars = [Name]
@@ -135,6 +136,7 @@ braces p   = symbol "{" *> p <* symbol "}"
 braket p   = symbol "[" *> p <* symbol "]"
 arrow     = symbol "→" <|> symbol "->"
 pBind      = (symbol "auto" >> pure "_") <|> pIdent <|> symbol "_"
+strLit = char '\"' *> manyTill L.charLiteral (char '\"')
 
 pVar :: Parser Raw 
 pVar = do 
@@ -215,6 +217,7 @@ pLet = do
   symbol ";"
   u <- pTerm
   pure $ RLet x (maybe Hole id ann) t u
+
 
 ----------------------------------------------------------------------------------------------------
 
@@ -619,6 +622,14 @@ pTopLevel = choice [data_type, function, command, hdata_type] where
         printLn . refresh ctx $ eval ctx t
       "withoutK" -> do 
         liftIO $ writeIORef withoutKRef True
+      "withK" -> do 
+        liftIO $ writeIORef withoutKRef False
+      "load" -> do 
+        fp <- strLit <* sc
+        putLn $ "Loading: " ++ fp
+        _ <- runWithCtx fp 
+        pure ()
+
       _ -> fail $ "Unknown command " ++ cmd
     
 
@@ -633,7 +644,11 @@ pProg = sc >> do
   ctx <- getCtx
   pure ctx
 
---- 
+pProgWithCfg :: Parser Config 
+pProgWithCfg = pProg >> ask
+
+-- Runners
+--------------------- 
 
 emptyCfg :: IO Config 
 emptyCfg = do 
@@ -651,6 +666,30 @@ testCfg = do
     { ctx = ref 
     , pvs = ["t"]
     }
+
+fromFileWith :: Parser a -> Config -> String -> IO a
+fromFileWith p cfg fp = do
+  src <- readFile fp 
+  m <- runReaderT (runParserT (p <* eof) fp src) cfg
+  ctx <- readIORef cfg.ctx
+  case m of 
+    Left err -> error $ errorBundlePretty err
+    Right a -> pure a
+
+data ReplErr = ReplErr String 
+  deriving Exception
+
+instance Show ReplErr where 
+  show (ReplErr s) = s
+
+fromStrWith :: Parser a -> Config -> String -> IO a
+fromStrWith p cfg src = do
+  m <- runReaderT (runParserT (p <* eof) "stdin" src) cfg
+  ctx <- readIORef cfg.ctx
+  case m of 
+    Left err -> throwIO . ReplErr $ errorBundlePretty err
+    Right a -> pure a
+
 
 fromFile :: Parser a -> String -> IO a
 fromFile p fp = do
@@ -675,5 +714,46 @@ fromFileTest p fp = do
 run :: String -> IO () 
 run fp = reset >> fromFile pProg fp >> pure ()
 
+runWithCtx :: String -> Parser Context
+runWithCtx fp = do 
+  cfg <- ask 
+  liftIO $ fromFileWith pProg cfg fp  
+
 runTest :: String -> IO ()
 runTest fp = reset >> fromFileTest pProg fp >> pure ()
+
+readLine :: IO (Maybe String)
+readLine = do
+  putStr "shitt> " 
+  (trim -> line) <- getLine 
+  if line == ";;" then 
+      pure Nothing
+  else 
+      pure $ Just line 
+  where 
+    trim = dropWhileEnd isSpace . dropWhile isSpace
+
+readLines :: IO String 
+readLines = go "" 
+  where 
+    go pre = do 
+      line <- readLine
+      case line of 
+        Nothing -> pure pre 
+        Just line -> go (pre ++ "\n" ++ line)
+
+readTopIO :: Config -> IO Config
+readTopIO cfg = do 
+  lines <- readLines
+  fromStrWith pProgWithCfg cfg lines
+    `catch` \(ReplErr e) -> putStrLn e >> pure cfg
+  
+
+repl :: IO ()
+repl = do 
+  cfg <- emptyCfg
+  go cfg 
+  where 
+    go cfg = do 
+      cfg' <- readTopIO cfg 
+      go cfg'

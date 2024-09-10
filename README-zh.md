@@ -49,6 +49,55 @@ ghci> run "Eaxmple.shitt"
 - [ ] 类型类
 - [ ] 互递归
 
+## 使用 REPL
+
+启动 REPL
+
+```shell
+> ./shitt repl 
+shitt> 
+```
+
+或者
+
+```shell
+> stack repl 
+ghci> import ShiTT.Parser
+ghci> repl
+shitt> 
+```
+
+输入任何 ShiTT 代码, 并以**新一行**的 ";;" 结束
+
+例如
+
+```shell
+shitt> data Bool : U where 
+shitt> | true : ...  
+shitt> | false : ...
+shitt> ;;
+All Done.
+shitt> def not (_ : Bool) : Bool 
+shitt> | true = false 
+shitt> | false = true
+shitt> ;;
+All Done.
+shitt> #eval not false
+shitt> ;;
+true
+All Done.
+```
+
+## 加载文件
+
+现在可以加载文件了
+
+```haskell
+#load "FilePath.shitt"
+
+-- 这里可以使用文件中的定义
+```
+
 ## 语法
 
 ### 定义类型

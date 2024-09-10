@@ -5,5 +5,8 @@ import ShiTT.Parser
 
 main :: IO ()
 main = do 
-  fp <- getArgs
-  run $ head fp
+  args <- getArgs
+  case args of 
+    ["repl"] -> repl
+    [fp] -> run fp
+    _ -> putStrLn "Unkown arguments"

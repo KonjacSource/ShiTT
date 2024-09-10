@@ -32,20 +32,69 @@ ghci> run "Eaxmple.shitt"
 - [x] Without K
 - [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
 - [x] Higher Inductive Types(No boundary check yet)
+- [x] REPL
+- [x] Module system (very naive)
 
 ## TODO
 
-- [ ] REPL
 - [ ] Operators
 - [ ] Termination checking
 - [ ] Positive checking for data types
 - [ ] Better pretty printing
 - [ ] Better error reporting
-- [ ] Module system
 - [ ] IO
 - [ ] Code generator
 - [ ] Type classes
 - [ ] Mutual recursion
+
+## Use REPL
+
+Start REPL with
+
+```shell
+> ./shitt repl 
+shitt> 
+```
+
+or
+
+```shell
+> stack repl 
+ghci> import ShiTT.Parser
+ghci> repl
+shitt> 
+```
+
+Input any ShiTT code, end with a NEW LINE ";;"
+
+i.e.
+
+```shell
+shitt> data Bool : U where 
+shitt> | true : ...  
+shitt> | false : ...
+shitt> ;;
+All Done.
+shitt> def not (_ : Bool) : Bool 
+shitt> | true = false 
+shitt> | false = true
+shitt> ;;
+All Done.
+shitt> #eval not false
+shitt> ;;
+true
+All Done.
+```
+
+## Load File
+
+You can now import a shitt file with
+
+```haskell
+#load "FilePath.shitt"
+
+-- here you can use anything defined in the file.
+```
 
 ## Syntax
 
