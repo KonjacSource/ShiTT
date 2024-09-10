@@ -9,11 +9,11 @@ fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where
 fun K {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e where 
 | P p (refl _) = p
 
+#withoutK
+
 -- OK
 fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e : Id a b) : P b e 
 | P p a (refl _) = p 
-
-#withoutK
 
 -- not OK
 fun K1 {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e where 
