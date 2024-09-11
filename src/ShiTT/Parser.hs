@@ -25,6 +25,7 @@ import Control.Exception hiding (try)
 import Test (testContext2)
 import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
 import Data.List (dropWhileEnd)
+import System.IO
 
 
 type PatVars = [Name]
@@ -724,7 +725,7 @@ runTest fp = reset >> fromFileTest pProg fp >> pure ()
 
 readLine :: IO (Maybe String)
 readLine = do
-  putStr "shitt> " 
+  putStr "shitt> " >> hFlush stdout
   (trim -> line) <- getLine 
   if line == ";;" then 
       pure Nothing
