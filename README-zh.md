@@ -11,7 +11,7 @@ ShiTT 是一个屎屎的语言, 支持一些高级依值类型特性.
 
 ## 用法
 
-编译, 然后加载 shitt 文件, 或者从 Release 中下载已编译好的文件.
+编译, 然后加载 shitt 文件, 或者从 [Release](https://github.com/KonjacSource/ShiTT/releases) 中下载已编译好的文件.
 
 ```shell
 > stack build 

@@ -6,7 +6,7 @@ ShiTT is a shitty language. TT here is the name of a friend of mine, instead of 
 
 ## Usage
 
-Build from source, or download binary from release.
+Build from source, or download binary from [Release](https://github.com/KonjacSource/ShiTT/releases).
 
 ```shell
 > stack build 

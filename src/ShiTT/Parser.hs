@@ -646,7 +646,12 @@ pProg = sc >> do
   pure ctx
 
 pProgWithCfg :: Parser Config 
-pProgWithCfg = pProg >> ask
+pProgWithCfg = sc >> do
+  many pTopLevel
+  all_solved <- liftIO allSolved
+  when (not all_solved) $ 
+    putLn "Warning: Unsolved meta variables"
+  ask
 
 -- Runners
 --------------------- 
