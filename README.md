@@ -175,7 +175,7 @@ fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where
 
 Here `y` is restricted by `imf x`.
 
-### HIT
+### ~~HIT~~
 
 ```haskell
 higher inductive Int : U where 
