@@ -8,21 +8,45 @@ fun add (m n : N) : N where
 
 data Vec (A : U) : (_ : N) -> U where 
 | nil : ... zero 
-| cons : {k : N} (_ : A) (_ : Vec A k) -> ... (succ k)
+| cons : {n : N} (_ : A) (_ : Vec A n) -> ... (succ n)
 
 fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
 | nil w = w 
-| {Ad} {md} {nd} (cons {n1} x xs) w = cons {_} {add n1 nd} x (append xs w)
+| {Ad} {md} {nd} (cons {n1} x xs) w = cons {Ad} {add n1 nd} x (append {Ad} {n1} {nd} xs w)
 
-#eval append (cons zero nil) (cons zero nil)
-{-
-expected:
-  Ad : U
-  md : N = succ n1 
-  nd : N 
-  n1 : N 
-  x  : Ad
-  xs    : Vec Ad n1   
-    but : Vec A nd
-  w  : Vec Ad nd
--}
+data Id {A : U} : (x y : A) -> U where 
+| refl : (t : A) -> ... t t 
+
+fun uip {B : U} {x x1 : B} (p q: Id x x1) : Id {Id x x1} p q where 
+| {B} {x} {y} (refl z) (refl w) = refl (refl w)
+
+fun K {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e where 
+| P p (refl _) = p
+
+fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e : Id a b) : P b e 
+| {Ad} {ad} P p b (refl x) = p 
+
+fun sym {A : U} {x y : A} (p : Id x y) : Id y x where 
+| (refl _) = refl _
+
+fun trans {A : U} {x y z : A} (_ : Id x y) (_ : Id y z) : Id x z where 
+| (refl _) (refl _) = refl _ 
+
+fun cong {A B : U} {x y : A} (f : A -> B) (p : Id x y) : Id (f x) (f y) where 
+| f (refl _) = refl _
+
+fun addAssoc (x y z : N) : Id (add (add x y) z) (add x (add y z)) where 
+| zero y z = refl _
+| (succ x) y z = cong succ (addAssoc x y z) 
+
+fun addIdR (x : N) : Id (add x zero) x where 
+| zero = refl _ 
+| (succ x) = cong succ (addIdR x)
+
+fun addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where 
+| zero y = refl _ 
+| (succ x) y = cong succ (addSucc x y)
+
+fun addComm (x y : N) : Id (add x y) (add y x) where 
+| zero y = sym (addIdR _)
+| (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)

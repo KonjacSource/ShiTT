@@ -15,6 +15,8 @@ import Data.IORef (readIORef)
 import Data.Foldable (forM_)
 import Debug.Trace (trace)
 import Control.Applicative (Alternative(empty))
+import Data.List (nub)
+
 
 data PMErr
   = NumOfPatErr
@@ -29,6 +31,7 @@ data CheckError = PMErr PMErr
                 | UnifyE Value Value
                 | UsedK
                 | BoundaryMismatch Name [((Spine, Value), (Spine, Value))]
+                | ConflictName Name
   deriving (Exception, Show)
 
 type UnifyContext =  M.Map Name Value
@@ -39,10 +42,10 @@ data CheckPResult = CheckPResult
   , rhsDefs :: [ElabDef]
   , unifyRes :: UnifyContext
   , asValue :: Spine
-  }
+  } deriving Show
 
-lift :: Either CheckError a -> IO a 
-lift (Left e)  = throwIO e 
+lift :: Either CheckError a -> IO a
+lift (Left e)  = throwIO e
 lift (Right a) = pure a
 
 evalWithPvar :: Context -> UnifyContext -> Term -> Value
@@ -73,7 +76,7 @@ checkP ctx ((x',i', t'):ts) (p:ps) rhsT pvars
         PVar x i -> do
             let type_level_defs = [(x', t) :=! VPatVar x []]
             let ctx'            = ctx <: type_level_defs <: (x, t) :=! VPatVar x []
-            let rhs_defs        = [(x, t) :=! VVar x]
+            let rhs_defs        = [(x, t) :=! VPatVar x []]
             rest               <- checkP ctx' ts ps rhsT pvars
             pure CheckPResult
               { rhsType  = rest.rhsType
@@ -107,6 +110,50 @@ checkP ctx ((x',i', t'):ts) (p:ps) rhsT pvars
 checkP ctx _ _ _ _ = Left . PMErr $ NumOfPatErr
 
 -- | Check the single constructor under a data type (fully applied)
+--   check arguments in data type's context, then move to the current context, then unify. 
+checkCon :: Context
+          -> (Data, Spine) -- ^ expected type
+          -> (Constructor, [Pattern], Icit)
+          -> UnifyContext
+          -> Either CheckError CheckPResult
+checkCon ctx a@(dat, dat_args) b@(con, ps, i) pvars = do
+  let (dat_para, dat_ix) = splitAt (length dat.dataPara) [(refresh ctx v, i)| (v, i) <- dat_args]
+  -- trace ("I'm checking the constructor " ++ show b ++ " under " ++ show (dat, dat_para ++ dat_ix)) do
+  --                     ^ Split the arguments on data
+  let para_def           = [ x := v | ((x,_,_), (v,_)) <- zip dat.dataPara dat_para ]
+  --                     ^ Get the definitions of coresponding data parameters
+  let ps_tele            = [ (x,i, quote ctx (eval (ctx <: para_def) t)) | (x,i,t) <- con.conPara ] -- TODO : to be optimized
+  --                     ^ Telescope of constructor arguments
+  let ps_tele_ctx        = ctx <: map (freeVar . (\(x,_,_) -> x)) dat.dataPara
+  arg_res               <- checkP ps_tele_ctx con.conPara ps Nothing M.empty
+  --                     ^ Check constructor arguments
+  let con_arg_def        = [ x := v | ((x,_,_), (v,_)) <- zip con.conPara arg_res.asValue ]
+  --                     ^ Get the definitions of coresponding constructor arguments
+  let subst_ctx          = ctx {env = M.empty} <: con_arg_def <: para_def
+  let ret_ix             = [ (eval subst_ctx t, i) | (t, i) <- con.retIx ]
+  --                     ^ Get the returning indexes
+  unify_res             <- unifySp (ctx <: arg_res.rhsDefs) arg_res.unifyRes ret_ix dat_ix
+  --                     ^ Unification!
+  let new_ctx = ctx <: arg_res.rhsDefs <: con_arg_def <: para_def
+
+  -- trace ("* ps_tele_ctx = " ++ show ps_tele_ctx ++ "\n") do
+  -- trace ("* arg_res     = " ++ show arg_res ++ "\n") do
+  -- trace ("* con_arg_def = " ++ show con_arg_def ++ "\n") do
+  -- trace ("* subst_ctx   = " ++ show subst_ctx ++ "\n") do
+  -- trace ("* ret_ix      = " ++ show ret_ix ++ "\n") do
+  -- trace ("* unify_res   = " ++ show unify_res ++ "\n") do
+  -- trace ("* new_ctx     = \n" ++ show new_ctx ++ "\n") do
+
+  let ret_val            = VCon con.conName $ allImplSp dat_para ++ arg_res.asValue
+  pure arg_res
+    { rhsDefs = [ (x, refresh new_ctx t) :=! refresh new_ctx v | (x,t) :=! v <- arg_res.rhsDefs ]
+    , unifyRes = unify_res
+    , asValue  = [(ret_val, i)]
+    }
+
+{---------------------------------------------------- BUGGY ONE --------------------------------------------------------------
+-- | Check the single constructor under a data type (fully applied)
+--   check arguments in current context, then unify. 
 checkCon :: Context
          -> (Data, Spine) -- ^ expected type
          -> (Constructor, [Pattern], Icit)
@@ -115,53 +162,81 @@ checkCon :: Context
 checkCon ctx a@(dat, dat_args) b@(con, ps, i) pvars = do
   trace ("\nI'm checking constructor: " ++ show b ++ " under the type: " ++ show a) $ do 
   let (dat_para, dat_ix) = splitAt (length dat.dataPara) dat_args
-                      -- ^ Split the arguments on data
+  --                     ^ Split the arguments on data
   let para_def           = [ x := v | ((x,_,_), (v,_)) <- zip dat.dataPara dat_para ]
-                      -- ^ Get the definitions of coresponding data parameters
+  --                     ^ Get the definitions of coresponding data parameters
+  trace ("!!!: " ++ show para_def) do
   let ps_tele            = [ (x,i, quote ctx (eval (ctx <: para_def) t)) | (x,i,t) <- con.conPara ] -- TODO : to be optimized
-                      -- ^ Telescope of constructor arguments
-  trace ("\nChecking arguments: " ++ show ctx) do
+  --                     ^ Telescope of constructor arguments
+  trace ("\nChecking arguments: " ++ show ctx ++ "\n| " ++ show ps_tele ++ "\n| " ++ show ps) do
   arg_res               <- checkP ctx ps_tele ps Nothing pvars
-                      -- ^ Check constructor arguments
+  --                     ^ Check constructor arguments
   let con_arg_def        = [ x := v | ((x,_,_), (v,_)) <- zip con.conPara arg_res.asValue ]
-                      -- ^ Get the definitions of coresponding constructor arguments
+  --                     ^ Get the definitions of coresponding constructor arguments
   let ret_ix             = [ (eval (ctx <: para_def <: con_arg_def) t, i) | (t, i) <- con.retIx ]
-                      -- ^ Get the returning indexes
-  trace ("  - Unifying " ++ show ret_ix ++ " with " ++ show dat_ix) do 
+  --                     ^ Get the returning indexes
   unify_res             <- unifySp (ctx <: arg_res.rhsDefs) arg_res.unifyRes ret_ix dat_ix
-                      -- ^ Unification!
+  --                     ^ Unification!
   let ret_val            = VCon con.conName $ allImplSp dat_para ++ arg_res.asValue
-  trace ("Done checking constructor: \n- "++ show unify_res ++ "\n- " ++ show arg_res.rhsDefs ++ "\nend.\n") do
   pure arg_res
     { unifyRes = unify_res
     , asValue   = [(ret_val, i)]
     }
+-----------------------------------------------------------------------------------------------------------------------------}
 
 checkClause :: Context -> D.Fun -> D.Clause -> IO (Either Context (Term, Context))
-checkClause ctx fun (D.Clause pat rhs) = case rhs of
-  D.NoMatchFor x -> error "TODO" -- Return (Left rhs_ctx)
-  D.Rhs t -> do 
-    res <- lift $ checkP ctx fun.funPara pat (Just fun.funRetType) M.empty
-    let rhs_ctx1 = ctx <: res.rhsDefs 
-                       <: res.unifyRes
-    let rhs_ctx = rhs_ctx1 {  bds = fetchBD rhs_ctx1 res.rhsDefs  }
-    trace
-      ("I'm checking clause for funcion: " ++ fun.funName 
-      ++ "\n  - with context: " ++ show rhs_ctx
-      ++ "\n  - with bds: " ++ show rhs_ctx.bds
-      ) do 
-    rhs <- C.check rhs_ctx t (fromJust res.rhsType)
-    pure $ Right (rhs, rhs_ctx)
-  where 
+checkClause ctx fun (D.Clause pat rhs) = do
+
+  -- patvar's name must be different from other (noncorrespond) name in telescope
+  -- or this will be error:
+  -- 
+  --  fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e : Id a b) : P b e 
+  --  | {Ad} {ad} P p a (refl x) = p 
+
+  let allNames = [ x | (x,_,_) <- fun.funPara]
+  checkPatternNames allNames fun.funPara pat
+  
+  case rhs of
+    D.NoMatchFor x -> error "TODO" -- Return (Left rhs_ctx)
+    D.Rhs t -> do
+      res <- lift $ checkP ctx fun.funPara pat (Just fun.funRetType) M.empty
+      let rhs_ctx1 = ctx <: res.rhsDefs
+                         <: res.unifyRes
+      let rhs_ctx = rhs_ctx1 {  bds = fetchBD rhs_ctx1 res.rhsDefs  }
+      -- trace
+      --   ("I'm checking clause for funcion: " ++ fun.funName
+      --   ++ "\n- with context: \n\n" ++ printContext rhs_ctx ++ "\n"
+      --   -- ++ "\n  - with bds: " ++ show rhs_ctx.bds
+      --   ) do
+      rhs <- C.check rhs_ctx t (fromJust res.rhsType)
+      pure $ Right (rhs, rhs_ctx)
+  where
     fetchBD :: Context -> [ElabDef] -> BDs
-    fetchBD ctx defs = 
-      let names = [ name | (name, _) :=! _ <- defs ] 
+    fetchBD ctx defs =
+      let names = [ name | (name, _) :=! _ <- defs ]
       in foldr (\n bds -> M.insert n (if isFree ctx n then Bound else Defined) bds) M.empty names
 
-checkFun :: Context -> Bool -> D.Fun -> IO Fun 
-checkFun ctx cover_chk_gate fun  = do 
-  let preFun = Fun 
-               { funName = fun.funName 
+checkPatternNames :: [Name] -> Telescope -> [Pattern] -> IO ()
+checkPatternNames names ts ps = case (ts, ps) of
+  ([], []) -> pure ()
+  ((x,_,_):ts, p:ps)
+    | x /= "_" -> do
+        let can't_be = filter (/= x) names
+        if all (`notElem` can't_be) $ allNames p then 
+          checkPatternNames names ts ps
+        else 
+          throwIO (ConflictName $ head (filter (`elem` can't_be) $ allNames p))
+    | otherwise -> checkPatternNames names ts ps
+  _ -> error "Impossible"
+  where
+    allNames = \case
+      PVar x _ -> [x]
+      PCon _ ps _ -> nub (allNames =<< ps)
+
+checkFun :: Context -> Bool -> D.Fun -> IO Fun
+checkFun ctx cover_chk_gate fun  = do
+  let preFun = Fun
+               { funName = fun.funName
                , funPara = fun.funPara
                , funRetType = fun.funRetType
                , funClauses = Nothing
@@ -170,28 +245,28 @@ checkFun ctx cover_chk_gate fun  = do
 
   let cls = fun.clauses
   -- elaboratted clause
-  rhss <- forM cls $ \c -> do 
+  rhss <- forM cls $ \c -> do
     rhs <- checkClause ctx' fun c
     pure (c.patterns, rhs)
-  
+
   let patsWithCtx = do -- TO-USE: In coverage check
         (p, t) <- rhss
-        case t of 
+        case t of
           Left ctx -> pure (p,ctx)
           Right (_,ctx) -> pure (p,ctx)
   -- TODO : Coverage Check
-  pure Fun 
+  pure Fun
     { funName = fun.funName
     , funPara = fun.funPara
     , funRetType = fun.funRetType
     , funClauses = if null rhss then Nothing else Just do
-        (ps, Right (rhs, rhs_ctx)) <- rhss 
-        pure Clause 
-          { patterns = ps 
+        (ps, Right (rhs, rhs_ctx)) <- rhss
+        pure Clause
+          { patterns = ps
           , clauseRhs = rhs
           }
     }
-  
+
 -- | Unify pattern variables.
 unify1 :: Context -> UnifyContext -> Value -> Value -> Either CheckError UnifyContext
 unify1 ctx fore v w = case (refresh ctx v, refresh ctx w) of
@@ -203,7 +278,7 @@ unify1 ctx fore v w = case (refresh ctx v, refresh ctx w) of
 
   (VPatVar n [], VPatVar m [])
     | m == n    -> pure fore
-    | m < n     -> pure $ M.insert n (VPatVar m []) fore
+    | m <  n    -> pure $ M.insert n (VPatVar m []) fore
     | otherwise -> pure $ M.insert m (VPatVar n []) fore
 
   (VPatVar n [], VVar n') | n == n' -> pure fore

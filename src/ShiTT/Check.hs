@@ -41,6 +41,9 @@ invert ctx sp = go [] sp 0 where
     VVar x | x `notElem` used -> do -- distinct check and var check
       rest <- go (x : used) vs (n + 1) 
       pure $ (x := VVar (lamNameGen n)) : rest
+    VPatVar x [] | x `notElem` used -> do -- distinct check and var check
+      rest <- go (x : used) vs (n + 1) 
+      pure $ (x := VVar (lamNameGen n)) : rest
     _ -> throwIO UnifyError
 
 allMeta :: Term -> [MetaId]
@@ -70,7 +73,8 @@ unifySp ctx sp sp' = case (sp, sp') of
   _                      -> throwIO UnifyError
 
 unify :: Context -> Value -> Value -> IO () 
-unify ctx (force ctx -> t) (force ctx -> u) = case (t, u) of 
+unify ctx (force ctx -> t) (force ctx -> u) = -- trace ("UNIFYING: " ++ show t ++ " WITH " ++ show u) $ 
+  case (t, u) of 
   ---
   (VU, VU) -> pure ()
   ---
@@ -173,7 +177,7 @@ check ctx t v = {- trace ("checking: " ++ show t ++ " under " ++ show (refresh c
     check (ctx {pos = Just pos}) t a
   ---
   (RPrintCtx t, a) -> do 
-    trace (show ctx) $ trace ("Goal: " ++ show (refresh ctx v)) $ do 
+    trace ("\n" ++ printContext ctx ++ "\n--------------------") $ trace (show (refresh ctx v) ++ "\n") $ do 
     t' <- check ctx t a
     pure $ PrintCtx t'
   ---

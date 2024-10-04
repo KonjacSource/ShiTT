@@ -414,15 +414,19 @@ pPatterns ts = do
         (_: rest) -> do
           (ps, rest') <- insertUntilName (n + 1) rest name
           pure (newPat n : ps, rest')
+
   let go :: Int -> Telescope -> [(Pattern, Maybe Name)] -> Parser [Pattern]
       go n ts ps = case (ts, ps) of 
         ([], []) -> pure []
+
         ((x,i,t):ts, (p,Nothing):ps) | i == icit p -> do
           rest <- go (n+1) ts ps 
           pure $ p : rest
+        
         ((x,Impl,t):ts, ps@((p, Nothing):_)) | icit p == Expl -> do -- Insert Implict Pattern 
           rest <- go (n+1) ts ps 
           pure $ newPat n : rest
+        
         (ts@((x,Impl,t):ts'), ps@((p, Just x'):ps')) -- Named Pattern
           | x == x' -> do 
               rest <- go (n+1) ts' ps'
@@ -431,6 +435,7 @@ pPatterns ts = do
               (pats, rest_ts) <- insertUntilName n ts x'
               rest <- go (n + length pats) rest_ts ps
               pure $ pats ++ rest
+
         _ -> fail $ "Unable to parse patterns: " ++ show ts ++ " | " ++ show ps
   ps <- go 0 ts given_pat
   pure (ps, pvs)
@@ -570,6 +575,7 @@ pTopLevel = choice [data_type, function, command] where
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
         UsedK -> error "Are you using K?"
         BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
+        ConflictName n -> error $ "Don't use the name: " ++ n
 
     addFun checked_fun
 

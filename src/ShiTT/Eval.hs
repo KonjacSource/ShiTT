@@ -10,6 +10,8 @@ import qualified Data.Map as M
 import ShiTT.Meta
 import Common
 import Debug.Trace (trace)
+import Data.List (intercalate)
+import Data.Maybe (fromJust)
 
 instance Show Value where
   show = pp True -- . force
@@ -72,7 +74,7 @@ eval ctx@(env -> env) = \case
   ---
   U                   -> VU 
   ---
-  PrintCtx t          -> trace (show ctx) $ eval ctx t
+  PrintCtx t          -> eval ctx t -- trace (show ctx) $ eval ctx t
   ---
   Meta m              -> vMeta m
   ---
@@ -92,10 +94,13 @@ eval ctx@(env -> env) = \case
     vAppSp ctx (vMeta m) (map (,Expl) (snd <$> M.toList avail_vars)) 
     -- I don't care the order, since I'm using HOAS
 
-isFree :: Context -> Name -> Bool 
-isFree ctx name = case M.lookup name ctx.env of 
-  Just (getName -> Just n) | n == name -> True 
-  _ -> False
+printContext :: Context -> String 
+printContext ctx = intercalate "\n" [  
+    if isFree ctx x then 
+      x ++ " : " ++ show t
+    else 
+      x ++ " : " ++ show t ++ "\n" ++ (const ' ' <$> [1..length x]) ++ " = " ++ show (fromJust (M.lookup x ctx.env))
+  | (x, (t, _)) <- M.toList ctx.types]
 
 quoteSp :: Context -> Term -> Spine -> Term
 quoteSp ctx t = \case 

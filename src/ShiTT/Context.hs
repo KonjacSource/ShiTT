@@ -7,7 +7,7 @@ import ShiTT.Syntax
 import qualified Data.Map as M
 import Text.Megaparsec (SourcePos)
 import Control.Monad (join)
-import Data.List (nub)
+import Data.List (nub, intercalate)
 import Debug.Trace (trace)
 
 -- Value
@@ -163,6 +163,11 @@ instance Insertable t f => Insertable t [f] where
 
 freeVar :: Name -> Def
 freeVar x = x := VVar x
+
+isFree :: Context -> Name -> Bool 
+isFree ctx name = case M.lookup name ctx.env of 
+  Just (getName -> Just n) | n == name -> True 
+  _ -> False
 
 -- Declarations
 ----------------
