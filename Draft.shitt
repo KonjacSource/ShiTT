@@ -51,9 +51,9 @@ fun addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where
 
 fun addComm (x y : N) : Id (add x y) (add y x) where 
 | zero y = sym (addIdR _)
-| (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
+| (succ x) y = traceContext[trans (cong succ (addComm x y)) (addSucc y x)]
 
--- --------------
+----------------
 
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
@@ -90,3 +90,4 @@ def maj (_ _ _ : Bool) : Bool where
 | false false false = false
 
 data Void : U where 
+#eval append (cons zero (cons (succ zero) nil)) nil

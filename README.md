@@ -257,6 +257,25 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | (succ x) y = traceContext[  trans (cong succ (addComm x y)) (addSucc y x)  ]
 ```
 
+This will show
+
+```haskell
+x : N
+y : N
+--------------------
+Id {N} (succ (add x y)) (add y (succ x))
+```
+
+Here is a useful usage:
+
+```haskell
+axiom fun sorry {A : U} : A
+
+fun addComm (x y : N) : Id (add x y) (add y x) where 
+| zero y = sym (addIdR _)
+| (succ x) y = traceContext[sorry]
+```
+
 `traceContext` will print the context definitions and the goal type (if it is not a metavariable) while type checking. Also note that `traceContext[x] = x`
 
 ## Example
