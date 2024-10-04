@@ -4,11 +4,16 @@ import qualified Data.IntMap as I
 import ShiTT.Syntax
 import Data.IORef
 import System.IO.Unsafe
+import ShiTT.Context
 
 -- Meta Context
 ----------------
 data MetaEntry = Unsolved | Solved Value
-  deriving Show
+
+instance Show MetaEntry where 
+  show = \case 
+    Unsolved -> "unsolved"
+    Solved _ -> "solved"
 
 solved :: MetaEntry -> Bool 
 solved Unsolved = False 

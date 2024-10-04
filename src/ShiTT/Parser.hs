@@ -1,6 +1,4 @@
 {-# HLINT ignore #-}
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE NondecreasingIndentation #-}
 module ShiTT.Parser where 
 
 import Control.Applicative hiding (many, some)
@@ -10,22 +8,21 @@ import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Control.Monad.Reader
-
+import ShiTT.CheckFunction
 import qualified ShiTT.Decl as D
-import ShiTT.Decl (Pattern(PVar, PCon), Rhs(Rhs, NoMatchFor))
+import ShiTT.Decl (Rhs(Rhs, NoMatchFor))
 import ShiTT.Context
 import ShiTT.Syntax
 import Data.Char
 import ShiTT.Check
 import ShiTT.Eval
-import ShiTT.Inductive
 import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
-import Test (testContext2)
 import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
 import Data.List (dropWhileEnd)
 import System.IO
+import Debug.Trace (trace)
 
 
 type PatVars = [Name]
@@ -64,12 +61,6 @@ addData dat = do
   ctx <- getCtx 
   setCtx $ ctx { decls = insertData dat ctx.decls }
 
-addHData :: HData -> Parser ()
-addHData dat = do 
-  ctx <- getCtx 
-  setCtx $ ctx { decls = insertHData dat ctx.decls }
-
-
 addFun :: Fun -> Parser () 
 addFun fun = do 
   ctx <- getCtx 
@@ -107,7 +98,7 @@ bar :: Parser ()
 bar = void (symbol "|")
 
 patVar :: Name -> Term
-patVar name = Var $ '-' : name
+patVar name = Var name
 
 isPatVar :: Name -> PatVars -> Bool
 isPatVar name pvs = name `elem` pvs
@@ -143,10 +134,7 @@ pVar :: Parser Raw
 pVar = do 
   name <- pIdent
   pvs <- ask.!pvs
-  if isPatVar name pvs then 
-    
-    pure $ RRef $ '-' : name 
-  else pure $ RRef name
+  pure $ RRef name
 
 pAtom :: Parser Raw 
 pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ (symbol "_" <|> symbol "auto")))
@@ -256,7 +244,7 @@ pTelescope' = do
       let ctx' = ctx <: (map (:! (ty_v, Source)) names)
       setCtx ctx'
       rest <- pTelescope' 
-      pure $ (map (\n -> (n,i,ty_v)) names) ++ rest
+      pure $ (map (\n -> (n,i,ty_t)) names) ++ rest
 
 -- | This keep the current context.
 pTelescope :: Parser Telescope
@@ -316,9 +304,9 @@ checkSpine xs ps = case (xs, ps) of
   ([], []) -> pure [] 
   ((x, i):xs, (_, i', t):ps) 
     | i == i' -> do 
-      x' <- checkType x t 
-      rest <- checkSpine xs ps
       ctx <- getCtx
+      x' <- checkType x (eval ctx t) 
+      rest <- checkSpine xs ps
       pure $ (x', i) : rest
     | otherwise -> fail $ show $ IcitMismatch i i'
   _ -> fail "Number of arguments unmatch, did you apply too many or too few arguments?" 
@@ -326,30 +314,23 @@ checkSpine xs ps = case (xs, ps) of
 pConstructor :: Data -> Parser Constructor
 pConstructor dat = do 
   con_name <- bar >> pIdent 
-  isFresh con_name 
+  isFresh con_name
   -- parse under the con_pare
   ctx <- getCtx 
   keepCtx do 
     con_para <- symbol ":" >> pTelescope' 
     if null con_para then 
-      symbol "..." 
+      symbol "..."
     else 
       arrow >> symbol "..."
     ret_ix_r <- many pUnnamedArg 
-    ret_ix_t <- checkSpine ret_ix_r dat.dataIx 
-    let ret_ix sp = -- sp : allImpl dataPara ++ conPara
-          let names = map (\(x,_,_) -> x) (dat.dataPara ++ con_para) 
-              ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
-          in  evalSp ctx' ret_ix_t
+    ret_ix_t <- checkSpine ret_ix_r dat.dataIx
     pure $ Constructor
       { conName = con_name
       , belongsTo = dat.dataName
       , conPara = con_para
-      , retIx = ret_ix
+      , retIx = ret_ix_t
       }
-  where evalSp ctx = \case 
-          [] -> [] 
-          ((x, i):xs) -> (eval ctx x, i) : evalSp ctx xs
 
 -- | This does not change the context
 pData :: Parser Data
@@ -396,17 +377,17 @@ pExplPattern = choice [parens pExplPattern, try var_pat, con_pat]
           pvs <- ask.!pvs 
           when (x `elem` pvs) $ fail $ "Duplicate pattern variable: " ++ x
           pure x
-      pure (PVar ('-':x) Expl, [x])
+      pure (PVar x Expl, [x])
 
 pPattern :: Parser ((Pattern, Maybe Name), PatVars) 
 pPattern = choice 
   [ try $ braces do
       name <- pIdent <* symbol "="
       (pat, pvs) <- pExplPattern 
-      pure ((D.setIcit Impl pat, Just name), pvs)
+      pure ((setIcit Impl pat, Just name), pvs)
   , braces do 
       (pat, pvs) <- pExplPattern 
-      pure ((D.setIcit Impl pat, Nothing), pvs)
+      pure ((setIcit Impl pat, Nothing), pvs)
   , do 
       (pat, pvs) <- pExplPattern 
       pure ((pat, Nothing), pvs)
@@ -424,9 +405,9 @@ manyPattern pvs = withPV pvs do
 
 -- | This will insert the omitted patterns
 pPatterns :: Telescope -> Parser ([Pattern], PatVars)
-pPatterns ts = do 
-  (given_pat, pvs) <- manyPattern [] 
-  let newPat n = PVar ("-ins_pat_var_" ++ show n) Impl
+pPatterns ts = do
+  (given_pat, pvs) <- manyPattern []
+  let newPat n = PVar ("-ins" ++ show n) Impl
   let insertUntilName n ts name = case ts of 
         [] -> fail . show $ NoNamedImplicitArg name
         ts@((x, Impl, _):_) | x == name -> pure ([], ts)
@@ -436,10 +417,10 @@ pPatterns ts = do
   let go :: Int -> Telescope -> [(Pattern, Maybe Name)] -> Parser [Pattern]
       go n ts ps = case (ts, ps) of 
         ([], []) -> pure []
-        ((x,i,t):ts, (p,Nothing):ps) | i == D.icit p -> do
+        ((x,i,t):ts, (p,Nothing):ps) | i == icit p -> do
           rest <- go (n+1) ts ps 
           pure $ p : rest
-        ((x,Impl,t):ts, ps@((p, Nothing):_)) | D.icit p == Expl -> do -- Insert Implict Pattern 
+        ((x,Impl,t):ts, ps@((p, Nothing):_)) | icit p == Expl -> do -- Insert Implict Pattern 
           rest <- go (n+1) ts ps 
           pure $ newPat n : rest
         (ts@((x,Impl,t):ts'), ps@((p, Just x'):ps')) -- Named Pattern
@@ -474,7 +455,7 @@ pRhs = do
         x <- symbol "!@" >> pIdent
         pvs <- ask.!pvs
         guard $ x `elem` pvs 
-        pure (NoMatchFor ('-':x))
+        pure (NoMatchFor x)
     , do 
         rhs <- symbol "=" >> pTerm 
         pure (Rhs rhs)
@@ -483,6 +464,7 @@ pRhs = do
 pClause :: Telescope -> Parser D.Clause 
 pClause ts = do 
   (pats, pvs) <- bar >> pPatterns ts
+  ctx <- getCtx
   rhs <- withPV pvs pRhs
   pure $ D.Clause
     { D.patterns = pats 
@@ -497,15 +479,10 @@ pFunHeader = keepCtx do
   fun_para <- pTelescope' <* symbol ":" 
   ret_ty_r <- pTerm <* (symbol "where" <|> pure "")
   ret_ty_t <- checkType ret_ty_r VU 
-  ctx <- getCtx
-  let ret_ty_v sp = -- sp : fun_para
-        let names = map (\(x,_,_) -> x) fun_para
-            ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
-        in  eval ctx' ret_ty_t
   pure $ D.Fun
     { D.funName = fun_name 
     , D.funPara = fun_para
-    , D.funRetType = ret_ty_v
+    , D.funRetType = ret_ty_t
     , D.clauses = []
     }
 
@@ -539,15 +516,11 @@ pHConstructor dat = do
       arrow >> symbol "..."
     ret_ix_r <- many pUnnamedArg 
     ret_ix_t <- checkSpine ret_ix_r dat.dataIx 
-    let ret_ix sp = -- sp : allImpl dataPara ++ conPara
-          let names = map (\(x,_,_) -> x) (dat.dataPara ++ con_para) 
-              ctx' = ctx <: map (uncurry (:=)) (zip names (fst <$> sp))
-          in  evalSp ctx' ret_ix_t
     let con = Constructor
               { conName = con_name
               , belongsTo = dat.dataName
               , conPara = con_para
-              , retIx = ret_ix
+              , retIx = ret_ix_t
               }
     isHCon <- (symbol "when" >> pure True) <|> pure False 
     if isHCon then do 
@@ -559,9 +532,6 @@ pHConstructor dat = do
                  , D.hconClauses = clss
                  })
     else pure (con, Nothing)
-  where evalSp ctx = \case 
-          [] -> [] 
-          ((x, i):xs) -> (eval ctx x, i) : evalSp ctx xs
 
 
 pHData :: Parser (Data, [D.HConstructor])
@@ -582,25 +552,19 @@ putLn :: String -> Parser ()
 putLn = liftIO . putStrLn
 
 pTopLevel :: Parser () 
-pTopLevel = choice [data_type, function, command, hdata_type] where 
+pTopLevel = choice [data_type, function, command] where 
 
   data_type = do 
     dat <- pData
     addData dat
 
-  hdata_type = do
-    dat <- pHData 
-    ctx <- getCtx
-    hdat <- liftIO $ checkHData ctx dat 
-    addHData hdat
-
   function = do
     isAxiom <- (symbol "axiom" >> pure True) <|> pure False
-    let checker = if isAxiom then checkAxiom else checkFun
+    let checker = if isAxiom then checkFun {- TODO -} else checkFun
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
-    checked_fun <- liftIO $ checker ctx fun 
+    checked_fun <- liftIO $ checker ctx True fun 
       `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
@@ -665,13 +629,13 @@ emptyCfg = do
     }
 
 -- for test
-testCfg :: IO Config 
-testCfg = do 
-  ref <- newIORef testContext2
-  pure Config
-    { ctx = ref 
-    , pvs = ["t"]
-    }
+-- testCfg :: IO Config 
+-- testCfg = do 
+  -- ref <- newIORef testContext2
+  -- pure Config
+    -- { ctx = ref 
+    -- , pvs = ["t"]
+    -- }
 
 fromFileWith :: Parser a -> Config -> String -> IO a
 fromFileWith p cfg fp = do
@@ -707,15 +671,15 @@ fromFile p fp = do
     Left err -> error $ errorBundlePretty err
     Right a -> pure a
 
-fromFileTest :: Parser a -> String -> IO a
-fromFileTest p fp = do
-  src <- readFile fp 
-  cfg <- testCfg
-  m <- runReaderT (runParserT p fp src) cfg
-  ctx <- readIORef cfg.ctx
-  case m of 
-    Left err -> error $ errorBundlePretty err
-    Right a -> pure a
+-- fromFileTest :: Parser a -> String -> IO a
+-- fromFileTest p fp = do
+--   src <- readFile fp 
+--   cfg <- testCfg
+--   m <- runReaderT (runParserT p fp src) cfg
+--   ctx <- readIORef cfg.ctx
+--   case m of 
+--     Left err -> error $ errorBundlePretty err
+--     Right a -> pure a
 
 run :: String -> IO () 
 run fp = reset >> fromFile pProg fp >> pure ()
@@ -725,8 +689,8 @@ runWithCtx fp = do
   cfg <- ask 
   liftIO $ fromFileWith pProg cfg fp  
 
-runTest :: String -> IO ()
-runTest fp = reset >> fromFileTest pProg fp >> pure ()
+-- runTest :: String -> IO ()
+-- runTest fp = reset >> fromFileTest pProg fp >> pure ()
 
 readLine :: IO (Maybe String)
 readLine = do

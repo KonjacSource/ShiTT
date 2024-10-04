@@ -1,5 +1,4 @@
 {-# HLINT ignore #-}
-{-# LANGUAGE NondecreasingIndentation #-}
 module ShiTT.Check where 
 import ShiTT.Context
 import ShiTT.Syntax
@@ -35,10 +34,10 @@ lams = go 0 where
   go x (i:is) t = Lam (lamNameGen x) i $ go (x + 1) is t 
 
 -- | [m1, m2, m3] |-> [m1 := $_0, m2 := $_1, m3 := $_2]
-invert :: Spine -> IO [Def]
-invert sp = go [] sp 0 where 
+invert :: Context -> Spine -> IO [Def]
+invert ctx sp = go [] sp 0 where 
   go used [] n = pure [] 
-  go used ((v,_):vs) n = case force v of 
+  go used ((v,_):vs) n = case force ctx v of 
     VVar x | x `notElem` used -> do -- distinct check and var check
       rest <- go (x : used) vs (n + 1) 
       pure $ (x := VVar (lamNameGen n)) : rest
@@ -53,7 +52,7 @@ allMeta = flip foldTerm [] $ \t acc -> case t of
 --       Gamma      m         sp       rhs
 solve :: Context -> MetaId -> Spine -> Value -> IO () 
 solve ctx m sp rhs = do
-  name_map <- invert sp 
+  name_map <- invert ctx sp 
   let rhs_term = quote ctx rhs
   if m `notElem` allMeta rhs_term then do -- ocurrence check
     let solution = 
@@ -71,30 +70,34 @@ unifySp ctx sp sp' = case (sp, sp') of
   _                      -> throwIO UnifyError
 
 unify :: Context -> Value -> Value -> IO () 
-unify ctx t u = case (force t, force u) of 
+unify ctx (force ctx -> t) (force ctx -> u) = case (t, u) of 
   ---
   (VU, VU) -> pure ()
   ---
-  (VLam x i t, VLam _ i' t') | i == i' -> let x' = freshName ctx x in 
-    unify (ctx <: freeVar x') (t (VVar x')) (t' (VVar x'))
+  (VLam x i t, VLam y i' t') | i == i' -> let x' = freshName ctx x in 
+    unify (ctx <: freeVar x') (t @ x := VVar x') (t' @ y := (VVar x'))
   ---
   (t', VLam x i  t ) -> let x' = freshName ctx x in 
-    unify (ctx <: freeVar x') (vApp t' (VVar x') i) (t (VVar x'))
+    unify (ctx <: freeVar x') (vApp ctx t' (VVar x') i) (t @ x := VVar x')
   ---
   (VLam x i t, t') -> let x' = freshName ctx x in 
-    unify (ctx <: freeVar x') (t (VVar x')) (vApp t' (VVar x') i)
+    unify (ctx <: freeVar x') (t @ x := VVar x') (vApp ctx t' (VVar x') i)
   ---
-  (VPi x i a b, VPi _ i' a' b') | i == i' -> do 
-    let x' = freshName ctx x 
+  (VPi x i a b, VPi x' i' a' b') | i == i' -> do 
+    let y = freshName ctx x 
     unify ctx a a'
-    unify (ctx <: freeVar x') (b (VVar x')) (b' (VVar x'))
+    unify (ctx <: freeVar x') (b @ x := VVar y) (b' @ x' := VVar y)
   ---
   (VCon con sp, VCon con' sp') | con == con' -> unifySp ctx sp sp' 
   ---
-  (VFunc fun sp, VFunc fun' sp') | fun == fun' -> unifySp ctx sp sp' 
+  (VFunc fun sp, VFunc fun' sp') | fun.funName == fun'.funName -> unifySp ctx sp sp' 
   ---
   (VRig x sp, VRig x' sp') | x == x' -> unifySp ctx sp sp' 
   --- 
+  (VPatVar x sp, VRig x' sp') | x == x' -> unifySp ctx sp sp'
+  ---
+  (VRig x sp, VPatVar x' sp') | x == x' -> unifySp ctx sp sp'
+  ---
   (VPatVar x sp, VPatVar x' sp') | x == x' -> unifySp ctx sp sp'
   ---
   (VFlex m sp, VFlex m' sp') | m == m' -> unifySp ctx sp sp' 
@@ -133,7 +136,7 @@ instance Show Error where
 type Anno = (Term, VType)
 
 unifyGuard :: Context -> Value -> Value -> IO ()
-unifyGuard ctx (force -> v) (force -> w) = 
+unifyGuard ctx (force ctx -> v) (force ctx -> w) = 
   do
     unify ctx v w 
   `catch` \UnifyError -> 
@@ -144,7 +147,7 @@ insert' ctx = (>>= go) where
   go (t, t_ty) = case t_ty of 
     VPi x Impl a b -> do 
       m <- freshMeta ctx 
-      go (App t m Impl, b (eval ctx m))
+      go (App t m Impl, b @ x := eval ctx m)
     _ -> pure (t, t_ty)
 
 insert :: Context -> IO Anno -> IO Anno 
@@ -154,17 +157,17 @@ insert ctx = (>>= \case
 
 insertUntilName :: Context -> Name -> IO Anno -> IO Anno 
 insertUntilName ctx name = (>>= go) where 
-  go (t, v) = case force v of 
+  go (t, v) = case force ctx v of 
     v@(VPi x Impl a b) -> do 
       if x == name then 
         pure (t, v)
       else do 
         m <- freshMeta ctx 
-        go (App t m Impl, b (eval ctx m))
+        go (App t m Impl, b @ x := eval ctx m)
     _ -> throwIO . Error ctx $ NoNamedImplicitArg name 
 
 check :: Context -> Raw -> VType -> IO Term 
-check ctx t v = case (t, force v) of 
+check ctx t v = {- trace ("checking: " ++ show t ++ " under " ++ show (refresh ctx v)) $ -} case (t, refresh ctx v) of 
   ---
   (SrcPos pos t, a) -> 
     check (ctx {pos = Just pos}) t a
@@ -179,11 +182,11 @@ check ctx t v = case (t, force v) of
       (\case (Just name) -> i' == Impl && name == x'
              Nothing     -> i' == Impl)
       (i' == Expl)  
-    -> Lam x i' <$> check (ctx <: x :! (a, Source)) t (b $ VVar x)
+    -> Lam x i' <$> check (ctx <: x :! (a, Source)) t (b @ x := VVar x)
   ---
   (t, VPi x Impl a b) -> do 
     let x' = freshName ctx x 
-    Lam x' Impl <$> check (ctx <: x :! (a, Inserted)) t (b $ VVar x')
+    Lam x' Impl <$> check (ctx <: x :! (a, Inserted)) t (b @ x := VVar x)
   ---
   (RLet x a t u, u') -> do 
     a <- check ctx a VU 
@@ -213,9 +216,9 @@ infer ctx = \case
     (t', ty) <- infer ctx t 
     pure $ (PrintCtx t', ty)
   ---
-  RRef ref -> 
+  RRef ref ->  
     case M.lookup ref ctx.decls.allDataDecls of 
-      Just (basePart -> dat) -> pure (Func ref, getDataType ctx dat) 
+      Just dat -> pure (Func ref, getDataType ctx dat) 
 
       _ -> case M.lookup ref ctx.decls.allFunDecls of 
         Just fun -> pure (Func ref, getFunType ctx fun)
@@ -223,6 +226,7 @@ infer ctx = \case
         Nothing -> case M.lookup ref ctx.types of 
           Just t -> pure (Var ref, fst t)
           Nothing -> throwIO . Error ctx $ NameNotInScope ref
+  ---
   RPVar ref -> case M.lookup ref ctx.types of 
     Just t -> pure (PatVar ref, fst t)
     Nothing -> throwIO . Error ctx $ NameNotInScope ref
@@ -231,7 +235,8 @@ infer ctx = \case
     a <- eval ctx <$> freshMeta ctx 
     let ctx' = ctx <: x :! (a, Source) 
     (t, b) <- insert ctx' $ infer ctx' t 
-    pure (Lam x i t, VPi x i a $ \_ -> b)
+    let empEnv = ctx {env = M.empty}
+    pure (Lam x i t, VPi x i a $ closeVal ctx $ quote empEnv b)
   ---
   RLam x (Named _) t -> throwIO $ Error ctx InferNamedLam
   ---
@@ -248,22 +253,22 @@ infer ctx = \case
         (t, t_ty) <- insert' ctx $ infer ctx t
         pure (Expl, t, t_ty)
     -- trace (show $ force t_ty) $ do 
-    (a, b) <- case force t_ty of 
+    (a, b, x) <- case force ctx t_ty of 
       VPi x i' a b ->  
         if i == i' then 
-          pure (a, b)
+          pure (a, b, x)
         else 
           throwIO . Error ctx $ IcitMismatch i i' 
       t_ty -> do 
         a <- eval ctx <$> freshMeta ctx 
         let name = freshName ctx "x"
         b' <- freshMeta (ctx <: name :! (a, Source))
-        let b = \ v -> eval ctx b' 
+        let b = Closure ctx b' 
         unifyGuard ctx t_ty (VPi name i a b)
-        pure (a, b)
+        pure (a, b, "_")
 
     u <- check ctx u a
-    pure (App t u i, b (eval ctx u))
+    pure (App t u i, b @ x := eval ctx u)
   ---
   RU -> pure (U, VU)
   ---

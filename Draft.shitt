@@ -1,0 +1,28 @@
+data N : U where  
+| zero : ...  
+| succ : (pre : N) -> ...  
+
+fun add (m n : N) : N where  
+| zero n = n
+| (succ m) n = succ (add m n)
+
+data Vec (A : U) : (_ : N) -> U where 
+| nil : ... zero 
+| cons : {k : N} (_ : A) (_ : Vec A k) -> ... (succ k)
+
+fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
+| nil w = w 
+| {Ad} {md} {nd} (cons {n1} x xs) w = cons {_} {add n1 nd} x (append xs w)
+
+#eval append (cons zero nil) (cons zero nil)
+{-
+expected:
+  Ad : U
+  md : N = succ n1 
+  nd : N 
+  n1 : N 
+  x  : Ad
+  xs    : Vec Ad n1   
+    but : Vec A nd
+  w  : Vec Ad nd
+-}

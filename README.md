@@ -3,6 +3,7 @@
 [English](./README.md) | [中文](./README-zh.md)
 
 ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
+**This project is being refactored**
 
 ## Usage
 
@@ -25,13 +26,12 @@ ghci> run "Eaxmple.shitt"
 
 - [x] Dependent types
 - [x] Type in Type
-- [x] Evaluation by HOAS
+- [x] ~~Evaluation by HOAS~~
 - [x] Meta variables and implict arugments (pattern unification)
 - [x] Pattern matching and data type
 - [x] Coverage checking
 - [x] Without K
 - [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
-- [x] Higher Inductive Types(No boundary check yet)
 - [x] REPL
 - [x] Module system (very naive)
 

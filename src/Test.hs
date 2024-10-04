@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -9,10 +8,14 @@ import ShiTT.Eval
 import ShiTT.Context
 
 import qualified ShiTT.Decl as R 
-import qualified ShiTT.Inductive as I
-import ShiTT.Decl (Pattern(PVar, PCon))
+-- import qualified ShiTT.Inductive as I
+-- import ShiTT.Decl (Pattern(PVar, PCon))
 import ShiTT.Meta
-import ShiTT.Inductive (splitCase)
+import Control.Monad (forM_)
+-- import ShiTT.Inductive (splitCase)
+import ShiTT.TermParser as TP
+import ShiTT.TermParser (readTerm)
+import ShiTT.Check (infer)
 
 natData :: Data
 natData = Data 
@@ -22,15 +25,12 @@ natData = Data
   , dataCons = [zeroCon, succCon]
   }
 
-natType :: VType
-natType = VCon "N" []
-
 zeroCon :: Constructor
 zeroCon = Constructor
   { conName   = "zero"
   , belongsTo = "N"
   , conPara   = []
-  , retIx     = \_ -> []
+  , retIx     = []
   }
 
 zero :: Value 
@@ -43,22 +43,77 @@ succCon :: Constructor
 succCon = Constructor
   { conName   = "succ"
   , belongsTo = "N"
-  , conPara   = [("pre", Expl, natType)]
-  , retIx     = \_ -> []
+  , conPara   = [("pre", Expl, Func "N")]
+  , retIx     = []
   }
 
--- addFun :: Fun 
--- addFun = Fun 
---   { funName = "add"
---   , funPara = [("m", Expl, natType), ("n", Expl, natType)]
---   , funRetType = \ _ -> natType
---   , funVal = \ctx -> \case 
---       [(VCon "zero" [], Expl), (n, Expl)] -> Just n 
---       [(VCon "succ" [(m, Expl)], Expl), (n, Expl)] ->
---         let res = pushCall ctx "add" [(m, Expl), (n, Expl)] in 
---         Just $ VCon "succ" [(res, Expl)]
---       _ -> Nothing 
---   }
+addFun :: Fun 
+addFun = Fun 
+  { funName = "add"
+  , funPara = [("m", Expl, Func "N"), ("n", Expl, Func "N")]
+  , funRetType = Func "N"
+  , funClauses = Just 
+      [ Clause 
+        { patterns = [PCon "zero" [] Expl, PVar "n" Expl]
+        , clauseRhs = Var "n" 
+        }
+      , Clause 
+        { patterns = [PCon "succ" [PVar "m" Expl] Expl, PVar "n" Expl]
+        , clauseRhs = Func "succ" `eApp` (Func "add" `eApp` Var "m" `eApp` Var "n")
+        }
+      ]
+  }
+
+testDecls 
+  = insertFun addFun 
+  $ insertData natData
+  $ emptyDecls
+
+testContext = emptyCtx
+  { decls = testDecls
+  }
+
+mkNum :: Int -> Term 
+mkNum 0 = Func "zero"
+mkNum n = Func "succ" `eApp` mkNum (n-1)
+
+callAdd :: Term -> Term -> Term 
+callAdd m n = Func "add" `eApp` m `eApp` n
+
+evalTest :: IO ()
+evalTest = do 
+  let tests = 
+        [ Let "x" (Func "N") (mkNum 3) $
+            callAdd (Var "x") (Var "x")
+        , Lam "x" Expl $ Lam "y" Expl $ 
+            callAdd (Func "succ" `eApp` Var "x") (Var "y")
+        , Func "add" 
+        , Func "add" `eApp` mkNum 3
+        , Func "add" `eApp` Func "add"
+        , (Lam "x" Expl $ Lam "y" Expl $ 
+            callAdd (Func "succ" `eApp` Var "x") (Var "y")) `eApp` mkNum 2
+        , Pi "m" Expl (Func "N") (Pi "n" Expl (Func "N") (Func "N"))
+        ]
+  forM_ tests $ \test -> do 
+    print $ eval testContext test
+
+testRead :: String -> Raw 
+testRead = readTerm testContext
+
+checkTest :: IO ()
+checkTest = do 
+  let tests = map testRead
+        [ "add"
+        , "N"
+        , "let x = succ zero ; add x x"
+        , "add zero"
+        , "\\ x . add x x"
+        ]
+  forM_ tests $ \test -> do 
+    (v,t) <- infer testContext test
+    print (eval testContext v, refresh testContext t)
+
+{-
 
 addFun :: Fun 
 addFun = Fun 
@@ -556,3 +611,6 @@ intervalData = Data
       }
     ]
   }
+
+
+  -}

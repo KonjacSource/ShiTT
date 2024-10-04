@@ -6,18 +6,6 @@ data Icit = Impl | Expl deriving (Eq, Show)
 data BD = Bound | Defined deriving (Eq, Show)
 type BDs = M.Map Name BD
 
-type Spine = [(Value, Icit)]
-type Telescope = [(Name, Icit, VType)]
-
--- for evaluation 
--- NOTE: this may cause some issue, 
--- since the Map dosn't store the message of dependency of vars.
--- And we will apply a meta to the context vars.
--- The generated lambda term may not be well-typed, 
--- but this is OK if don't check the type of it.
--- If it needs to be changed, remember to change @eval ctx (InsertedMeta m bds)@ also.
-type Env = M.Map Name Value
-
 type MetaId = Int
 
 type Name = String
@@ -41,22 +29,17 @@ data Raw
   | RU
   | SrcPos SourcePos Raw
   | Hole
+  -- deriving Show
   
-  
-
 instance Show Raw where 
-  show = show . toV where 
-    toIcit = \case 
-      Unnamed i ->  i
-      Named _ -> Impl
-    toV = \case 
-      RRef x -> VVar x 
-      RPVar x -> VVar x 
-      RLam x i t -> VLam x (toIcit i) $ const (toV t)
-      RApp a b i -> VRig (show a) [(toV b, toIcit i)]
-      RU -> VU
-      SrcPos _ r -> toV r
-      _ -> error "undefined"
+  show = \case 
+    RRef n -> n 
+    RPVar n -> n 
+    RLam n b r -> "\\ " ++ n ++ ". " ++ show r
+    RApp a b _ -> show a ++ " " ++ show b 
+    RPi n _ t b -> "Pi " ++ n ++ ":" ++ show t ++ "." ++ show b 
+    SrcPos _ r -> show r 
+    _ -> "..."
 
 data Term
   = Var Name
@@ -65,10 +48,11 @@ data Term
   | Pi Name Icit Type Term
   | Let Name Type Term Term
   | PrintCtx Term
-  | Func Name
+  | Func Name -- Func or Con
   | Meta MetaId
   | PatVar Name
   | InsertedMeta MetaId BDs
+  | Undefiend
   | U
   deriving (Show, Eq)
 
@@ -76,58 +60,10 @@ infixl 9 `eApp`
 eApp :: Term -> Term -> Term
 eApp f u = App f u Expl
 
-data Value
-  = VLam Name Icit (Value -> Value)
-  | VRig Name Spine
-  | VCon Name Spine
-  | VFlex MetaId Spine
-  | VPatVar Name Spine
-  | VFunc Name Spine
-  | VPi Name Icit VType (Value -> Value)
-  | VU
-
-foldTerm :: (Term -> b -> b) -> b -> Term -> b
-foldTerm f acc t = case t of
-  App a b _   -> deal [a,b]
-  Lam _ _ b   -> deal [b]
-  Pi _ _ a b  -> deal [a,b]
-  Let _ a b c -> deal [a,b,c]
-  _           -> deal []
-  where
-    deal xs = f t $ ffold xs
-    ffold [] = acc
-    ffold (x:xs) = foldTerm f (ffold xs) x
+tmAppSp :: Term -> TmSpine -> Term 
+tmAppSp f sp = case sp of 
+  [] -> f 
+  (t,i):ts -> tmAppSp (App f t i) ts
 
 type Type = Term
-
-type VType = Value
-
-pattern VVar :: Name -> Value
-pattern VVar x = VRig x []
-
-pattern VMeta :: MetaId -> Value
-pattern VMeta m = VFlex m []
-
-instance Show Value where
-  show = pp True -- . force
-    where
-      ppSp [] = ""
-      ppSp ((v, Expl):rest) = ' ' : pp False v ++ ppSp rest
-      ppSp ((v, Impl):rest) = " {" ++ pp True v ++ '}' : ppSp rest
-      remove_infix = \case
-        -- ('-':n) -> n
-        n -> n
-      pp is_top = \case
-        VLam x Expl b -> inParen $ "lambda " ++ x ++ ". " ++ pp True (b (VVar x))
-        VLam x Impl b -> inParen $ "lambda {" ++ x ++ "}. " ++ pp True (b (VVar x))
-        VRig x sp -> if null sp then remove_infix x else inParen $ x ++ ppSp sp
-        VCon x sp -> {-"!con!" ++-} pp is_top (VRig x sp)
-        VFlex m sp -> pp is_top (VRig ('?':show m) sp)
-        VFunc x sp -> {-"!fun!" ++-} pp is_top (VRig x sp)
-        VPatVar ('-':x) sp -> {-"!pat!" ++-} pp is_top (VRig x sp)
-        VPatVar x sp -> {-"!pat!" ++-} pp is_top (VRig x sp)
-        VPi x Expl t b -> inParen $ "Pi (" ++ x ++ ":" ++ pp True t ++ "). " ++ pp True (b (VVar x))
-        VPi x Impl t b -> inParen $ "Pi {" ++ x ++ ":" ++ pp True t ++ "}. " ++ pp True (b (VVar x))
-        VU -> "U"
-        where paren x = '(' : x ++ ")"
-              inParen x = if is_top then x else paren x
+type TmSpine = [(Term, Icit)]

@@ -1,0 +1,4 @@
+Refactor
+- Test Vec & append
+- Inductive & coverage (Use to have issues on append)
+- Termination check.

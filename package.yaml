@@ -86,3 +86,8 @@ default-extensions:
 - ViewPatterns
 - OverloadedRecordDot
 - Strict
+- MultiParamTypeClasses
+- BlockArguments
+- NondecreasingIndentation
+- FunctionalDependencies
+- FlexibleInstances
