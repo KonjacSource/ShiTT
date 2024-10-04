@@ -80,7 +80,9 @@ eval ctx@(env -> env) = \case
   ---
   PatVar x            -> case M.lookup x env of 
     Just v -> v 
-    Nothing -> trace ("unknow: " ++ x ++ " in env: " ++ show env) $ error "Impossible"
+    Nothing 
+      | head x == '*' -> VPatVar x []
+      | otherwise -> trace ("unknow: " ++ x ++ " in env: " ++ show env) $ error "Impossible"
   ---
   Undefiend -> error "Impossible: evalating undefined"
   ---

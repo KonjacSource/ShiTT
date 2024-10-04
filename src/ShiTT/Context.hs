@@ -167,7 +167,9 @@ freeVar x = x := VVar x
 isFree :: Context -> Name -> Bool 
 isFree ctx name = case M.lookup name ctx.env of 
   Just (getName -> Just n) | n == name -> True 
-  _ -> False
+  _ 
+    | head name == '*' -> True
+    | otherwise -> False
 
 -- Declarations
 ----------------

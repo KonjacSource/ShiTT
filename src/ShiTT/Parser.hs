@@ -569,7 +569,7 @@ pTopLevel = choice [data_type, function, command] where
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
-    checked_fun <- liftIO $ checker ctx True fun 
+    checked_fun <- liftIO $ checker ctx (not isAxiom) fun 
       `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
