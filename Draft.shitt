@@ -10,9 +10,11 @@ data Vec (A : U) : (_ : N) -> U where
 | nil : ... zero 
 | cons : {n : N} (_ : A) (_ : Vec A n) -> ... (succ n)
 
+fun sorry {A: U} : A
+
 fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
 | nil w = w 
-| {Ad} {md} {nd} (cons {n1} x xs) w = cons {Ad} {add n1 nd} x (append {Ad} {n1} {nd} xs w)
+| {Ad} {md} {nd} (cons {n1} x xs) w = traceContext[cons {Ad} {add n1 nd} x (append {Ad} {n1} {nd} xs w)]
 
 data Id {A : U} : (x y : A) -> U where 
 | refl : (t : A) -> ... t t 
@@ -50,3 +52,41 @@ fun addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where
 fun addComm (x y : N) : Id (add x y) (add y x) where 
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
+
+-- --------------
+
+data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
+| imf : (x : A) -> ... (f x) 
+
+fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
+| f y (imf x) = traceContext[x]  
+
+data Either (A B : U) : U where 
+| left  : (_ : A) -> ...
+| right : (_ : B) -> ...
+
+data Unit : U where 
+| unit : ...
+
+data Bool : U where 
+| true : ... 
+| false : ...
+
+
+fun invfEither {A B : U} (f : A -> B) (y : B) (_ : Either Unit (Imf f y)) : Either B A where 
+| {A} {B} f y (right (imf x)) = traceContext[right x] -- here y is     inaccessible
+| {A} {B} f y (left unit)     = left y  -- here y is not inaccessible
+
+fun invfEither2 {A : U} (f : A -> N) (y : N) (_ : Either Unit (Imf f y)) : Either Bool A where 
+| f y        (right (imf x)) = right x         -- here y is     inaccessible
+| f zero     (left   unit)   = left false      -- here y is not inaccessible
+| f (succ y) (left   unit)   = left true       -- here y is not inaccessible
+
+def maj (_ _ _ : Bool) : Bool where 
+| true  true  true  = true
+| true  false z     = z 
+| false y     true  = y 
+| x     true  false = x 
+| false false false = false
+
+data Void : U where 

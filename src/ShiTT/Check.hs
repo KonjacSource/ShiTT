@@ -144,7 +144,7 @@ unifyGuard ctx (force ctx -> v) (force ctx -> w) =
   do
     unify ctx v w 
   `catch` \UnifyError -> 
-    throwIO . Error ctx $ Can'tUnify v w
+    throwIO . Error ctx $ Can'tUnify (refresh ctx v) (refresh ctx w)
 
 insert' :: Context -> IO Anno -> IO Anno
 insert' ctx = (>>= go) where 

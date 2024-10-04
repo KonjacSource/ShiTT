@@ -67,8 +67,8 @@ fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
 
-fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
-| f _ (imf x) = x  
+-- fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where 
+-- | f _ (imf x) = x  
 
 data Either (A B : U) : U where 
 | left  : (_ : A) -> ...
