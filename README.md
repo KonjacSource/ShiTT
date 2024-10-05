@@ -34,6 +34,7 @@ ghci> run "Eaxmple.shitt"
 - [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
 - [x] REPL
 - [x] Module system (very naive)
+- [x] Mutual recursion
 
 ## TODO
 
@@ -45,7 +46,7 @@ ghci> run "Eaxmple.shitt"
 - [ ] IO
 - [ ] Code generator
 - [ ] Type classes
-- [ ] Mutual recursion
+- [ ] Better Module system
 
 ## Use REPL
 
@@ -174,6 +175,27 @@ fun invf {A B : U} (f : A -> B) (y : B) (_ : Imf f y) : A where
 ```
 
 Here `y` is restricted by `imf x`.
+
+### Mutual Recursion
+
+Only mutual functions for now. The syntax is pretty Pascal style.
+
+```haskell
+mutual
+  fun even (_ : N) : Bool
+  fun odd  (_ : N) : Bool
+begin
+
+  fun even
+  | zero = true
+  | (succ n) = odd n
+  
+  fun odd 
+  | zero = false
+  | (succ n) = even n
+  
+end
+```
 
 ### ~~HIT~~
 

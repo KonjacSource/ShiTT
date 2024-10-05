@@ -13,7 +13,7 @@ fun K {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e wher
 
 -- OK
 fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e : Id a b) : P b e 
-| P p a (refl _) = p 
+| P p b (refl _) = p 
 
 -- not OK
 fun K1 {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e where 

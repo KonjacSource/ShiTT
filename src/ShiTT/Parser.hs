@@ -115,7 +115,7 @@ keywords =  [ "U", "let", "in", "fun", "λ"
             , "data", "where", "def", "fun"
             , "nomatch", "auto", "traceContext"
             , "inductive", "higher", "when"
-            , "unmatchable", "axiom" ]
+            , "unmatchable", "axiom", "mutual", "begin", "end" ]
 
 pIdent :: Parser Name
 pIdent = do
@@ -559,11 +559,10 @@ putLn = liftIO . putStrLn
 checkFunction :: Parser () 
 checkFunction = do
     isAxiom <- (symbol "axiom" >> pure True) <|> pure False
-    let checker = checkFun
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
-    checked_fun <- liftIO $ checker ctx (not isAxiom) fun 
+    checked_fun <- liftIO $ checkFun ctx (not isAxiom) fun 
       `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
         UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
@@ -572,11 +571,48 @@ checkFunction = do
         ConflictName n -> error $ "Don't use the name: " ++ n
     addFun checked_fun
 
+pMutualBody :: [D.Fun] -> Parser ()
+pMutualBody [] = pure ()
+pMutualBody header = do 
+  fun_name <- symbol "fun" >> pIdent 
+  let lookup :: [D.Fun] -> [D.Fun] -> Maybe (D.Fun, [D.Fun])
+      lookup _ [] = Nothing 
+      lookup fore (f:fs)
+        | f.funName == fun_name = Just (f, fore ++ fs)
+        | otherwise = lookup (fore ++ [f]) fs
+  case lookup [] header of 
+    Nothing -> error $ "The funcion " ++ fun_name ++ " should not define in mutual block."
+    Just (fun_header, rest_headers) -> do  
+
+      clauses <- many (pClause (D.funPara fun_header))
+      let raw_fun = fun_header { D.clauses = clauses }
+      ctx <- getCtx
+      pos <- getSourcePos
+      checked_fun <- liftIO $ checkFun ctx True raw_fun 
+        `catch` \e -> putStrLn ("In function " ++ raw_fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
+          PMErr pm -> error (show pm)
+          UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
+          UsedK -> error "Are you using K?"
+          BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
+          ConflictName n -> error $ "Don't use the name: " ++ n
+      addFun checked_fun
+      pMutualBody rest_headers
+
 pMutual :: Parser () 
-pMutual = undefined
+pMutual = do 
+  raw_headers <- symbol "mutual" >> many pFunHeader <* symbol "begin"
+  let mkFun fun = Fun
+        { funName = fun.funName
+        , funPara = fun.funPara
+        , funRetType = fun.funRetType
+        , funClauses = Nothing
+        }
+  let headers = mkFun <$> raw_headers
+  mapM_ addFun headers
+  pMutualBody raw_headers <* symbol "end"  
 
 pTopLevel :: Parser () 
-pTopLevel = choice [data_type, checkFunction, command] where 
+pTopLevel = choice [data_type, checkFunction, pMutual, command] where 
 
   data_type = do 
     dat <- pData

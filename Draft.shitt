@@ -91,3 +91,19 @@ data Void : U where
 
 fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where 
 | n k !@ k
+
+
+mutual
+  fun even (_ : N) : Bool
+  fun odd  (_ : N) : Bool
+begin
+
+  fun even
+  | zero = true
+  | (succ n) = odd n
+  
+  fun odd 
+  | zero = false
+  | (succ n) = even n
+  
+end

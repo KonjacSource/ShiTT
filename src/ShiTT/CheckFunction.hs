@@ -13,7 +13,6 @@ import Control.Monad (forM, when, join, guard)
 import Data.Maybe (fromJust, isJust, isNothing)
 import ShiTT.Meta
 import Data.IORef (readIORef)
-import Data.Foldable (forM_)
 import Debug.Trace (trace)
 import Control.Applicative (Alternative(empty))
 import Data.List (nub)
