@@ -196,7 +196,7 @@ Define an axiom like this,
 axiom def lem {A : U} : Either A (A -> Void)
 ```
 
-### Unmatchable
+### ~~Unmatchable~~
 
 ```haskell
 unmatchable data Interval : U where 

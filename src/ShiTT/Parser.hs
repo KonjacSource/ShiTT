@@ -556,16 +556,10 @@ printLn = liftIO . putStrLn . show
 putLn :: String -> Parser ()
 putLn = liftIO . putStrLn
 
-pTopLevel :: Parser () 
-pTopLevel = choice [data_type, function, command] where 
-
-  data_type = do 
-    dat <- pData
-    addData dat
-
-  function = do
+checkFunction :: Parser () 
+checkFunction = do
     isAxiom <- (symbol "axiom" >> pure True) <|> pure False
-    let checker = if isAxiom then checkFun {- TODO -} else checkFun
+    let checker = checkFun
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
@@ -576,8 +570,17 @@ pTopLevel = choice [data_type, function, command] where
         UsedK -> error "Are you using K?"
         BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
         ConflictName n -> error $ "Don't use the name: " ++ n
-
     addFun checked_fun
+
+pMutual :: Parser () 
+pMutual = undefined
+
+pTopLevel :: Parser () 
+pTopLevel = choice [data_type, checkFunction, command] where 
+
+  data_type = do 
+    dat <- pData
+    addData dat
 
   command = symbol "#" >> do
     cmd <- pIdent

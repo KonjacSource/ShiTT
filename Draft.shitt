@@ -53,8 +53,6 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 | zero y = sym (addIdR _)
 | (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)
 
-----------------
-
 data Imf {A B : U} (f : A -> B) : (_ : B) -> U where 
 | imf : (x : A) -> ... (f x) 
 
