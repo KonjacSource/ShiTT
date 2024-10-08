@@ -22,7 +22,6 @@ import Control.Exception hiding (try)
 import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
 import Data.List (dropWhileEnd)
 import System.IO
-import Debug.Trace (trace)
 import ShiTT.Termination.Call (MutualSet)
 import qualified Data.Set as S
 import ShiTT.Termination.Check

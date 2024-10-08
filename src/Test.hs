@@ -3,19 +3,19 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module Test where 
-import ShiTT.Syntax
-import ShiTT.Eval
-import ShiTT.Context
+-- import ShiTT.Syntax
+-- import ShiTT.Eval
+-- import ShiTT.Context
 
-import qualified ShiTT.Decl as R 
--- import qualified ShiTT.Inductive as I
--- import ShiTT.Decl (Pattern(PVar, PCon))
-import ShiTT.Meta
-import Control.Monad (forM_)
--- import ShiTT.Inductive (splitCase)
-import ShiTT.TermParser as TP
-import ShiTT.TermParser (readTerm)
-import ShiTT.Check (infer)
+-- import qualified ShiTT.Decl as R 
+-- -- import qualified ShiTT.Inductive as I
+-- -- import ShiTT.Decl (Pattern(PVar, PCon))
+-- import ShiTT.Meta
+-- import Control.Monad (forM_)
+-- -- import ShiTT.Inductive (splitCase)
+-- import ShiTT.TermParser as TP
+-- import ShiTT.TermParser (readTerm)
+-- import ShiTT.Check (infer)
 
 -- natData :: Data
 -- natData = Data 

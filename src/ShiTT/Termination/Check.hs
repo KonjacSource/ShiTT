@@ -2,7 +2,6 @@ module ShiTT.Termination.Check where
 
 import ShiTT.Termination.Call
 import ShiTT.Context
-import Debug.Trace (trace)
 
 -- | The given context should contain the fake definitions (which means only fun header) of mutual functions.
 checkTermination :: Context -> MutualSet -> Bool

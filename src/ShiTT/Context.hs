@@ -8,7 +8,6 @@ import qualified Data.Map as M
 import Text.Megaparsec (SourcePos)
 import Control.Monad (join)
 import Data.List (nub)
-import Debug.Trace (trace)
 
 -- Value
 ----------------------------------

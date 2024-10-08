@@ -35,11 +35,11 @@ ghci> run "Eaxmple.shitt"
 - [x] REPL
 - [x] Module system (very naive)
 - [x] Mutual recursion
+- [x] Termination checking
 
 ## TODO
 
 - [ ] Operators
-- [ ] Termination checking
 - [ ] Universe polymorphism
 - [ ] Positive checking for data types
 - [ ] Better pretty printing
@@ -300,6 +300,69 @@ fun addComm (x y : N) : Id (add x y) (add y x) where
 ```
 
 `traceContext` will print the context definitions and the goal type (if it is not a metavariable) while type checking. Also note that `traceContext[x] = x`
+
+### Termination Check
+
+ShiTT does check termination. You can use `partial` to shut it down.
+
+```haskell
+data Bool : U where 
+| true : ... 
+| false : ...
+
+data N : U where  
+| zero : ...  
+| succ : (pre : N) -> ...  
+
+mutual
+  
+  fun even (_ : N) : Bool
+  fun odd  (_ : N) : Bool
+
+begin
+
+  fun even
+  | zero = true
+  | (succ n) = odd n
+  
+  fun odd 
+  | zero = false
+  | (succ n) = even n
+  
+end
+
+fun add (_ _ : N) : N 
+| zero n = n 
+| (succ m) n = succ (add m n) 
+
+-- Bad
+fun add1 (_ _ : N) : N 
+| m n = add1 m n
+
+-- Good again
+partial fun add1 (_ _ : N) : N 
+| m n = add1 m n
+
+-- This is also good!
+fun add2 (_ _ : N) : N 
+| x zero = x 
+| x (succ y) = succ (add2 y x)
+
+data Vec (A : U) : (_ : N) -> U where 
+| nil : ... zero 
+| cons : {n : N} (_ : A) (_ : Vec A n) -> ... (succ n)
+
+
+
+fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
+| nil w = w 
+| (cons x xs) w = cons x (append xs w)
+
+-- Bad
+fun append1 {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
+| nil w = w 
+| (cons x xs) w = (append (cons x xs) w)
+```
 
 ## Example
 

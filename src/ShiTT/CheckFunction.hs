@@ -10,11 +10,9 @@ import qualified Data.Map as M
 import ShiTT.Syntax
 import Control.Exception
 import Control.Monad (forM, when, join, guard)
-import Data.Maybe (fromJust, isJust, isNothing)
+import Data.Maybe (fromJust, isNothing)
 import ShiTT.Meta
 import Data.IORef (readIORef)
-import Debug.Trace (trace)
-import Control.Applicative (Alternative(empty))
 import Data.List (nub)
 
 
