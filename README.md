@@ -3,7 +3,6 @@
 [English](./README.md) | [中文](./README-zh.md)
 
 ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
-**This project is being refactored**
 
 ## Usage
 
@@ -25,6 +24,7 @@ ghci> run "Eaxmple.shitt"
 ## Features
 
 - [x] Dependent types
+- [x] Bidirectional type checking
 - [x] Type in Type
 - [x] ~~Evaluation by HOAS~~
 - [x] Meta variables and implict arugments (pattern unification)
