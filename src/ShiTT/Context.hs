@@ -7,7 +7,7 @@ import ShiTT.Syntax
 import qualified Data.Map as M
 import Text.Megaparsec (SourcePos)
 import Control.Monad (join)
-import Data.List (nub, intercalate)
+import Data.List (nub)
 import Debug.Trace (trace)
 
 -- Value
@@ -106,7 +106,6 @@ data Context = Context
 -- instance Show Context where 
 --   show decl = "\n- env:" ++ show decl.env ++ "\n- typ:" ++ show decl.types ++ "\n"
 
-
 infixl 4 <: 
 infix 8 :=, :~, :!, :=!
 
@@ -202,6 +201,7 @@ instance Show Pattern where
 
 data Clause = Clause 
   { patterns  :: [Pattern] 
+  , rhsContext :: Context 
   , clauseRhs :: Term
   }
 

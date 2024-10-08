@@ -40,6 +40,7 @@ ghci> run "Eaxmple.shitt"
 
 - [ ] Operators
 - [ ] Termination checking
+- [ ] Universe polymorphism
 - [ ] Positive checking for data types
 - [ ] Better pretty printing
 - [ ] Better error reporting

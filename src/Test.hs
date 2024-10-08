@@ -17,102 +17,102 @@ import ShiTT.TermParser as TP
 import ShiTT.TermParser (readTerm)
 import ShiTT.Check (infer)
 
-natData :: Data
-natData = Data 
-  { dataName = "N"
-  , dataPara = []
-  , dataIx   = [] 
-  , dataCons = [zeroCon, succCon]
-  }
+-- natData :: Data
+-- natData = Data 
+--   { dataName = "N"
+--   , dataPara = []
+--   , dataIx   = [] 
+--   , dataCons = [zeroCon, succCon]
+--   }
 
-zeroCon :: Constructor
-zeroCon = Constructor
-  { conName   = "zero"
-  , belongsTo = "N"
-  , conPara   = []
-  , retIx     = []
-  }
+-- zeroCon :: Constructor
+-- zeroCon = Constructor
+--   { conName   = "zero"
+--   , belongsTo = "N"
+--   , conPara   = []
+--   , retIx     = []
+--   }
 
-zero :: Value 
-zero = VCon "zero" []
+-- zero :: Value 
+-- zero = VCon "zero" []
 
-suc :: Value -> Value 
-suc pre = VCon "succ" [(pre, Expl)]
+-- suc :: Value -> Value 
+-- suc pre = VCon "succ" [(pre, Expl)]
 
-succCon :: Constructor
-succCon = Constructor
-  { conName   = "succ"
-  , belongsTo = "N"
-  , conPara   = [("pre", Expl, Func "N")]
-  , retIx     = []
-  }
+-- succCon :: Constructor
+-- succCon = Constructor
+--   { conName   = "succ"
+--   , belongsTo = "N"
+--   , conPara   = [("pre", Expl, Func "N")]
+--   , retIx     = []
+--   }
 
-addFun :: Fun 
-addFun = Fun 
-  { funName = "add"
-  , funPara = [("m", Expl, Func "N"), ("n", Expl, Func "N")]
-  , funRetType = Func "N"
-  , funClauses = Just 
-      [ Clause 
-        { patterns = [PCon "zero" [] Expl, PVar "n" Expl]
-        , clauseRhs = Var "n" 
-        }
-      , Clause 
-        { patterns = [PCon "succ" [PVar "m" Expl] Expl, PVar "n" Expl]
-        , clauseRhs = Func "succ" `eApp` (Func "add" `eApp` Var "m" `eApp` Var "n")
-        }
-      ]
-  }
+-- addFun :: Fun 
+-- addFun = Fun 
+--   { funName = "add"
+--   , funPara = [("m", Expl, Func "N"), ("n", Expl, Func "N")]
+--   , funRetType = Func "N"
+--   , funClauses = Just 
+--       [ Clause 
+--         { patterns = [PCon "zero" [] Expl, PVar "n" Expl]
+--         , clauseRhs = Var "n" 
+--         }
+--       , Clause 
+--         { patterns = [PCon "succ" [PVar "m" Expl] Expl, PVar "n" Expl]
+--         , clauseRhs = Func "succ" `eApp` (Func "add" `eApp` Var "m" `eApp` Var "n")
+--         }
+--       ]
+--   }
 
-testDecls 
-  = insertFun addFun 
-  $ insertData natData
-  $ emptyDecls
+-- testDecls 
+--   = insertFun addFun 
+--   $ insertData natData
+--   $ emptyDecls
 
-testContext = emptyCtx
-  { decls = testDecls
-  }
+-- testContext = emptyCtx
+--   { decls = testDecls
+--   }
 
-mkNum :: Int -> Term 
-mkNum 0 = Func "zero"
-mkNum n = Func "succ" `eApp` mkNum (n-1)
+-- mkNum :: Int -> Term 
+-- mkNum 0 = Func "zero"
+-- mkNum n = Func "succ" `eApp` mkNum (n-1)
 
-callAdd :: Term -> Term -> Term 
-callAdd m n = Func "add" `eApp` m `eApp` n
+-- callAdd :: Term -> Term -> Term 
+-- callAdd m n = Func "add" `eApp` m `eApp` n
 
-evalTest :: IO ()
-evalTest = do 
-  let tests = 
-        [ Let "x" (Func "N") (mkNum 3) $
-            callAdd (Var "x") (Var "x")
-        , Lam "x" Expl $ Lam "y" Expl $ 
-            callAdd (Func "succ" `eApp` Var "x") (Var "y")
-        , Func "add" 
-        , Func "add" `eApp` mkNum 3
-        , Func "add" `eApp` Func "add"
-        , (Lam "x" Expl $ Lam "y" Expl $ 
-            callAdd (Func "succ" `eApp` Var "x") (Var "y")) `eApp` mkNum 2
-        , Pi "m" Expl (Func "N") (Pi "n" Expl (Func "N") (Func "N"))
-        ]
-  forM_ tests $ \test -> do 
-    print $ eval testContext test
+-- evalTest :: IO ()
+-- evalTest = do 
+--   let tests = 
+--         [ Let "x" (Func "N") (mkNum 3) $
+--             callAdd (Var "x") (Var "x")
+--         , Lam "x" Expl $ Lam "y" Expl $ 
+--             callAdd (Func "succ" `eApp` Var "x") (Var "y")
+--         , Func "add" 
+--         , Func "add" `eApp` mkNum 3
+--         , Func "add" `eApp` Func "add"
+--         , (Lam "x" Expl $ Lam "y" Expl $ 
+--             callAdd (Func "succ" `eApp` Var "x") (Var "y")) `eApp` mkNum 2
+--         , Pi "m" Expl (Func "N") (Pi "n" Expl (Func "N") (Func "N"))
+--         ]
+--   forM_ tests $ \test -> do 
+--     print $ eval testContext test
 
-testRead :: String -> Raw 
-testRead = readTerm testContext
+-- testRead :: String -> Raw 
+-- testRead = readTerm testContext
 
-checkTest :: IO ()
-checkTest = do 
-  let tests = map testRead
-        [ "add"
-        , "N"
-        , "let x = succ zero ; add x x"
-        , "add zero"
-        , "\\ x . add x x"
-        ]
-  forM_ tests $ \test -> do 
-    (v,t) <- infer testContext test
-    print (eval testContext v, refresh testContext t)
-
+-- checkTest :: IO ()
+-- checkTest = do 
+--   let tests = map testRead
+--         [ "add"
+--         , "N"
+--         , "let x = succ zero ; add x x"
+--         , "add zero"
+--         , "\\ x . add x x"
+--         ]
+--   forM_ tests $ \test -> do 
+--     (v,t) <- infer testContext test
+--     print (eval testContext v, refresh testContext t)
+--------------------------------------------------------------------------------------------
 {-
 
 addFun :: Fun 

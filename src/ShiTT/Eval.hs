@@ -48,6 +48,7 @@ instance Show Bind where
 
 deriving instance Show ElabBind
 deriving instance Show ElabDef
+deriving instance Show Clause
 
 infixl 7 @
 (@) :: Closure -> Def -> Value
@@ -187,7 +188,7 @@ match1 ctx (PCon name ps i) (force ctx -> VCon name' ps', i')
 match1 ctx _ _ = Nothing
 
 matchClause :: Context -> Clause -> Spine -> Maybe Value 
-matchClause ctx (Clause patt rhs) sp = do 
+matchClause ctx (Clause patt _ rhs) sp = do 
   defs <- match ctx patt sp 
   pure $ eval (ctx <: defs) rhs
 

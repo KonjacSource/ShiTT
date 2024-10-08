@@ -285,6 +285,7 @@ checkFun ctx cover_chk_gate fun  = do
         (ps, Right (rhs, rhs_ctx)) <- rhss
         pure Clause
           { patterns = ps
+          , rhsContext = rhs_ctx
           , clauseRhs = rhs
           }
     }
@@ -492,5 +493,4 @@ genInitSp :: Context -> Telescope -> Spine
 genInitSp ctx = \case 
   [] -> [] 
   (freshName ctx . ('*':) -> x,i,t):ts -> (VPatVar x [], i) : genInitSp (ctx <: freeVar x) ts
-
 

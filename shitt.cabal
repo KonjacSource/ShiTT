@@ -35,6 +35,7 @@ library
       ShiTT.Parser
       ShiTT.Syntax
       ShiTT.Termination.Call
+      ShiTT.Termination.Check
       ShiTT.Termination.Ord
       ShiTT.TermParser
       Test

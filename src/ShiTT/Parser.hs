@@ -2,7 +2,7 @@
 module ShiTT.Parser where 
 
 import Control.Applicative hiding (many, some)
-import Control.Monad (void, guard, when)
+import Control.Monad (void, guard, when, forM_)
 import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
@@ -23,7 +23,9 @@ import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
 import Data.List (dropWhileEnd)
 import System.IO
 import Debug.Trace (trace)
-
+import ShiTT.Termination.Call (MutualSet)
+import qualified Data.Set as S
+import ShiTT.Termination.Check
 
 type PatVars = [Name]
 
@@ -115,7 +117,7 @@ keywords =  [ "U", "let", "in", "fun", "λ"
             , "data", "where", "def", "fun"
             , "nomatch", "auto", "traceContext"
             , "inductive", "higher", "when"
-            , "unmatchable", "axiom", "mutual", "begin", "end" ]
+            , "unmatchable", "axiom", "mutual", "begin", "end", "partial" ]
 
 pIdent :: Parser Name
 pIdent = do
@@ -559,9 +561,11 @@ putLn = liftIO . putStrLn
 checkFunction :: Parser () 
 checkFunction = do
     isAxiom <- (symbol "axiom" >> pure True) <|> pure False
+    chkTerm <- (symbol "partial" >> pure False) <|> pure True
     fun <- pFun 
     ctx <- getCtx
     pos <- getSourcePos
+
     checked_fun <- liftIO $ checkFun ctx (not isAxiom) fun 
       `catch` \e -> putStrLn ("In function " ++ fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
         PMErr pm -> error (show pm)
@@ -569,10 +573,29 @@ checkFunction = do
         UsedK -> error "Are you using K?"
         BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
         ConflictName n -> error $ "Don't use the name: " ++ n
+    
+    -- check termination
+    let preFun = Fun
+               { funName = fun.funName
+               , funPara = fun.funPara
+               , funRetType = fun.funRetType
+               , funClauses = Nothing
+               }
+    let term_chk_ctx = ctx { decls = insertFun preFun ctx.decls }
+    let mut = S.singleton checked_fun
+    when chkTerm do
+      if checkTermination term_chk_ctx mut then 
+        pure () 
+      else do
+        putLn $ "I don't know if the following functions terminate: " 
+        forM_ mut (putLn . ("- " ++) . show)
+        putLn ""
+        pure ()
+
     addFun checked_fun
 
-pMutualBody :: [D.Fun] -> Parser ()
-pMutualBody [] = pure ()
+pMutualBody :: [D.Fun] -> Parser MutualSet
+pMutualBody [] = pure S.empty
 pMutualBody header = do 
   fun_name <- symbol "fun" >> pIdent 
   let lookup :: [D.Fun] -> [D.Fun] -> Maybe (D.Fun, [D.Fun])
@@ -589,17 +612,20 @@ pMutualBody header = do
       ctx <- getCtx
       pos <- getSourcePos
       checked_fun <- liftIO $ checkFun ctx True raw_fun 
-        `catch` \e -> putStrLn ("In function " ++ raw_fun.funName ++ ":" ++ sourcePosPretty pos) >> case e of  
-          PMErr pm -> error (show pm)
-          UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
-          UsedK -> error "Are you using K?"
-          BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
-          ConflictName n -> error $ "Don't use the name: " ++ n
+        `catch` \e -> putStrLn ("In function " ++ raw_fun.funName ++ ":" ++ sourcePosPretty pos) >> 
+          case e of  
+            PMErr pm -> error (show pm)
+            UnifyE u v -> error ("(PatternMatch) Can't unify " ++ show u ++ " with " ++ show v) 
+            UsedK -> error "Are you using K?"
+            BoundaryMismatch fun_name sp -> error "Boundary Mismatch."
+            ConflictName n -> error $ "Don't use the name: " ++ n
       addFun checked_fun
-      pMutualBody rest_headers
+      rest <- pMutualBody rest_headers
+      pure $ S.insert checked_fun rest
 
 pMutual :: Parser () 
 pMutual = do 
+  chkTerm <- (symbol "partial" >> pure False) <|> pure True
   raw_headers <- symbol "mutual" >> many pFunHeader <* symbol "begin"
   let mkFun fun = Fun
         { funName = fun.funName
@@ -609,7 +635,19 @@ pMutual = do
         }
   let headers = mkFun <$> raw_headers
   mapM_ addFun headers
-  pMutualBody raw_headers <* symbol "end"  
+  -- This is the context for checking, the evaluation of the defining functions would stuck.
+  term_chk_ctx <- getCtx
+  mut <- pMutualBody raw_headers <* symbol "end"  
+  
+  -- check termination
+  when chkTerm do
+    if chkTerm && checkTermination term_chk_ctx mut then 
+      pure () 
+    else do
+      putLn $ "I don't know if the following functions terminate: " 
+      forM_ mut (putLn . ("- " ++) . show)
+      putLn ""
+      pure ()
 
 pTopLevel :: Parser () 
 pTopLevel = choice [data_type, checkFunction, pMutual, command] where 
