@@ -1,0 +1,1 @@
+This part is mainly based on [Termination Checking for a Dependently Typed Language](https://www.cse.chalmers.se/~abela/mehltret-da.pdf).

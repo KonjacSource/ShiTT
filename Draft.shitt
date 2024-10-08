@@ -94,8 +94,10 @@ fun nomatchTest (n : N) (_: Id (succ (succ n)) (succ n)) : N where
 
 
 mutual
+  
   fun even (_ : N) : Bool
   fun odd  (_ : N) : Bool
+
 begin
 
   fun even

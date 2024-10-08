@@ -26,6 +26,7 @@ dependencies:
 - exception-transformers
 - megaparsec
 - mtl
+- matrix
 
 ghc-options:
 - -Wall

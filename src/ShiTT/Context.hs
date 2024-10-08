@@ -212,6 +212,12 @@ data Fun = Fun
  , funClauses :: Maybe [Clause]
  }
 
+instance Eq Fun where 
+  f == g = f.funName == g.funName
+
+instance Ord Fun where 
+  compare f g = compare f.funName g.funName
+
 instance Show Fun where 
   show = funName
 

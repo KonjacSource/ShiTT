@@ -360,3 +360,17 @@ def addComm (x y : N) : Id (add x y) (add y x) where
 
 
 ```
+
+## Reference
+
+Pattern matching and inductive type:
+
+- Ulf Norell. [Towards a practical programming language based on dependent type theory](https://www.cse.chalmers.se/~ulfn/papers/thesis.pdf).
+
+Solving meta variables:
+
+- András Kovács. [elaboration-zoo](https://github.com/AndrasKovacs/elaboration-zoo).
+
+Termination checking:
+
+- Karl Mehltretter. [Termination Checking for a Dependently Typed Language](https://www.cse.chalmers.se/~abela/mehltret-da.pdf).
