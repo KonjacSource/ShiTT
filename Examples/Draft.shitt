@@ -10,7 +10,7 @@ data Vec (A : U) : (_ : N) -> U where
 | nil : ... zero 
 | cons : {n : N} (_ : A) (_ : Vec A n) -> ... (succ n)
 
-axiom fun sorry {A: U} : A
+axiom partial fun sorry {A: U} : A
 
 fun append {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
 | nil w = w 
