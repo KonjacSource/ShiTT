@@ -366,7 +366,7 @@ fun append1 {A : U} {m n : N} (v : Vec A m) (w : Vec A n) : Vec A (add m n)
 
 ## Example
 
-The following example shows the basic syntax and how to do some simple theorem proof (remember we have no termination check yet).
+The following example shows the basic syntax and how to do some simple theorem proof.
 
 ```haskell
 data Id {A : U} : (_ _ : A) -> U where 
