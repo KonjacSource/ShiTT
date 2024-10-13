@@ -55,5 +55,9 @@ withoutKRef = runIO $ newIORef False
 -- Other Global
 ---------------
 
+wildcardRef :: IORef Int 
+wildcardRef = runIO $ newIORef 1
+
 allUnmatchableTypes :: IORef [Name]
 allUnmatchableTypes = runIO $ newIORef []
+

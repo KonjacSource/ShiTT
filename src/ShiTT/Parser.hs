@@ -19,7 +19,7 @@ import ShiTT.Eval
 import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
-import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes)
+import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes, wildcardRef)
 import Data.List (dropWhileEnd)
 import System.IO
 import ShiTT.Termination.Call (MutualSet)
@@ -30,7 +30,7 @@ type PatVars = [Name]
 
 data Config = Config 
   { ctx :: IORef Context
-  , pvs :: PatVars 
+  , pvs :: PatVars
   } 
 
 type Parser = ParsecT Void String (ReaderT Config IO)
@@ -124,11 +124,19 @@ pIdent = do
   guard $ x `notElem` keywords
   x <$ sc
 
+wildcard :: Parser Name 
+wildcard = do
+  symbol "_" 
+  cnt_val <- liftIO $ readIORef wildcardRef 
+  liftIO $ writeIORef wildcardRef (cnt_val + 1)
+  pure $ "_!" ++ show cnt_val
+
+
 parens p   = symbol "(" *> p <* symbol ")"
 braces p   = symbol "{" *> p <* symbol "}"
 braket p   = symbol "[" *> p <* symbol "]"
 arrow     = symbol "→" <|> symbol "->"
-pBind      = (symbol "auto" >> pure "_") <|> pIdent <|> symbol "_"
+pBind      = (symbol "auto" >> pure "_") <|> pIdent <|> wildcard
 strLit = char '\"' *> manyTill L.charLiteral (char '\"')
 
 pVar :: Parser Raw 
@@ -138,7 +146,7 @@ pVar = do
   pure $ RRef name
 
 pAtom :: Parser Raw 
-pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ (symbol "_" <|> symbol "auto")))
+pAtom = withPos (try pVar <|> (RU <$ symbol "U") <|> (Hole <$ (wildcard <|> symbol "auto")))
     <|> (do 
           t <- symbol "traceContext" >> braket pTerm
           pure $ RPrintCtx t

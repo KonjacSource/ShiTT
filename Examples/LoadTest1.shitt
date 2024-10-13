@@ -1,8 +1,0 @@
-data Nat : U where 
-| zero : ...
-| succ : (_ : Nat) -> ...
-
-def add (_ _ : Nat) : Nat where 
-| zero n = n 
-| (succ m) n = succ (add m n)
-

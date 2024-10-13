@@ -109,3 +109,31 @@ begin
   | (succ n) = even n
   
 end
+
+data Int : U where 
+| pos : (_:N) -> ... 
+| negSuc : (_:N) -> ... 
+
+fun sub (_ _ : N)   : Int
+| zero     zero     = pos zero 
+| zero     (succ n) = negSuc n
+| (succ m) zero     = pos (succ m)
+| (succ m) (succ n) = sub m n
+
+fun addInt (_ _ : Int)  : traceContext[Int] 
+| (pos    m) (pos    n) = pos (add m n) 
+| (negSuc m) (pos    n) = sub n (succ m)
+| (pos    m) (negSuc n) = sub m (succ n)
+| (negSuc m) (negSuc n) = negSuc (succ (add m n))
+
+
+fun add2 (_ : N) : N -> N 
+| zero = \x . x 
+| (succ m) = \x . succ (add2 m x)
+
+
+fun three : N |= succ (succ (succ zero))
+fun two   : N |= succ (succ zero)
+
+#eval addInt (pos three) (negSuc two)
+#eval add2 three two

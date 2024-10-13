@@ -1,7 +1,0 @@
-#load "LoadTest1.shitt"
-
-def double (_ : Nat) : Nat where 
-| x = add x x
-
-#infer Nat
-#eval double (succ (succ zero))

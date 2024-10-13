@@ -27,7 +27,7 @@ fun trans (A : U) (x y z : A) (auto : Id auto x y) (auto : Id auto y z) : Id aut
 | auto auto auto auto (refl auto) (refl auto) = refl auto 
 
 fun cong (A B : U) (x y : A) (f : A -> B) (p : Id auto x y) : Id auto (f x) (f y) where 
-| auto auto auto auto f (refl x) = refl auto
+| auto auto auto auto f (refl _) = refl auto
 
 fun addAssoc (x y z : N) : Id auto (add (add x y) z) (add x (add y z)) where 
 | zero auto auto = refl auto

@@ -14,7 +14,7 @@ fun K {A : U} {a : A} (P : Id a a -> U) (p : P (refl _)) (e : Id a a) : P e wher
 | P p (refl _) = p
 
 fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e : Id a b) : P b e 
-| P p a (refl _) = p 
+| _ p _ (refl _) = p 
 
 fun add (m n : N) : N where  
 | zero n = n
@@ -41,7 +41,7 @@ fun trans {A : U} {x y z : A} (_ : Id x y) (_ : Id y z) : Id x z where
 | (refl _) (refl _) = refl _ 
 
 fun cong {A B : U} {x y : A} (f : A -> B) (p : Id x y) : Id (f x) (f y) where 
-| f (refl x) = refl _
+| f (refl _) = refl _
 
 fun addAssoc (x y z : N) : Id (add (add x y) z) (add x (add y z)) where 
 | zero y z = refl _
