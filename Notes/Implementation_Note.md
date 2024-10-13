@@ -61,6 +61,49 @@ If you are writting a implementation of MLTT without meta variable solving. You 
 
 ## Inductive Type
 
-ShiTT did not support positive check yet (It is not hard, but I am lazy😢).
+For the record, ShiTT did not support positive check yet (It is not hard, but I am lazy😢).
+
+ShiTT stores all the definitions in the following type.
+
+```haskell
+-- ShiTT.Context
+data Decls = Decls 
+  { definedNames :: [Name]
+  , allDataDecls :: M.Map Name Data
+  , allFunDecls  :: M.Map Name Fun
+  } deriving Show
+```
+
+And for a data type, `Context.Data` is used,
+
+```haskell
+data Data = Data 
+  { dataName :: Name 
+  , dataPara :: Telescope
+  , dataIx   :: Telescope
+  , dataCons :: [Constructor] 
+  }
+-- where
+data Constructor = Constructor
+  { conName :: Name 
+  , belongsTo :: Name         -- Name of the data type
+  , conPara :: Telescope      -- dataPara |- telescope
+  , retIx   :: TmSpine        -- (dataPara ++ conPara) |- retIx
+  }
+```
+
+Those fields can be explaind below,
+
+```haskell
+
+data "dataName" "dataPara" : "dataIx" -> U where
+| "conName1" : "conPara1" -> ... "retIx1"
+| "conName2" : "conPara2" -> ... "retIx2"
+blabla
+
+-- belongsTo1 = belongsTo2 = ... = dataName
+```
+
+The syntax follows Agda. Split arguments of data types into two parts. (1) The parameters, which can not various between different constructors. (2) The indexes, which can.
 
 

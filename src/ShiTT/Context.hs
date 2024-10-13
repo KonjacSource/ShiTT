@@ -251,7 +251,7 @@ data Constructor = Constructor
   { conName :: Name 
   , belongsTo :: Name 
   , conPara :: Telescope      -- dataPara |- telescope
-  , retIx   :: TmSpine -- (dataPara ++ conPara) |- retIx
+  , retIx   :: TmSpine        -- (dataPara ++ conPara) |- retIx
   }
 
 instance Show Constructor where 
