@@ -4,6 +4,8 @@
 
 ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
 
+There is a [implementation note](./Notes/Implementation_Note.md) that I am still writting.
+
 ## Usage
 
 Build from source, or download binary from [Release](https://github.com/KonjacSource/ShiTT/releases).
