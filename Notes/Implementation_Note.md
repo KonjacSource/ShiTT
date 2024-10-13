@@ -85,10 +85,10 @@ data Data = Data
   }
 -- where
 data Constructor = Constructor
-  { conName :: Name 
-  , belongsTo :: Name         -- Name of the data type
-  , conPara :: Telescope      -- dataPara |- telescope
-  , retIx   :: TmSpine        -- (dataPara ++ conPara) |- retIx
+  { conName   :: Name 
+  , belongsTo :: Name      -- Name of the data type
+  , conPara   :: Telescope -- dataPara              |- conPara
+  , retIx     :: TmSpine   -- (dataPara ++ conPara) |- retIx
   }
 ```
 

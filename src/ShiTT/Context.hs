@@ -248,10 +248,10 @@ instance Show Data where
   show = dataName
 
 data Constructor = Constructor
-  { conName :: Name 
+  { conName   :: Name 
   , belongsTo :: Name 
-  , conPara :: Telescope      -- dataPara |- telescope
-  , retIx   :: TmSpine        -- (dataPara ++ conPara) |- retIx
+  , conPara   :: Telescope -- dataPara |- conPara
+  , retIx     :: TmSpine   -- (dataPara ++ conPara) |- retIx
   }
 
 instance Show Constructor where 
