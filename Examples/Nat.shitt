@@ -1,0 +1,25 @@
+#load "Id.shitt"
+
+data N : U where  
+| zero : ...  
+| succ : (pre : N) -> ...  
+
+fun add (m n : N) : N where  
+| zero n = n
+| (succ m) n = succ (add m n)
+
+fun addAssoc (x y z : N) : Id (add (add x y) z) (add x (add y z)) where 
+| zero y z = refl _
+| (succ x) y z = cong succ (addAssoc x y z) 
+
+fun addIdR (x : N) : Id (add x zero) x where 
+| zero = refl _ 
+| (succ x) = cong succ (addIdR x)
+
+fun addSucc (x y : N) : Id (add (succ x) y) (add x (succ y)) where 
+| zero y = refl _ 
+| (succ x) y = cong succ (addSucc x y)
+
+fun addComm (x y : N) : Id (add x y) (add y x) where 
+| zero y = sym (addIdR _)
+| (succ x) y = trans (cong succ (addComm x y)) (addSucc y x)

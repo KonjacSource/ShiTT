@@ -26,15 +26,20 @@ instance Show Value where
         VLam x Expl b -> inParen $ "lambda " ++ x ++ ". "   ++ pp True (b @ x := VVar x)
         VLam x Impl b -> inParen $ "lambda {" ++ x ++ "}. " ++ pp True (b @ x := VVar x)
         VRig x sp -> if null sp then remove_infix x else inParen $ x ++ ppSp sp
-        VCon x sp -> {-"!con!" ++ -}pp is_top (VRig x sp)
+        VCon x sp -> pp is_top (VRig x sp)
         VFlex m sp -> pp is_top (VRig ('?':show m) sp)
-        VFunc x sp -> {- "!fun!" ++ -}pp is_top (VRig x.funName sp)
-        VPatVar x sp -> {- "!pat!" ++ -}pp is_top (VRig x sp)
+        VFunc x sp -> pp is_top (VRig x.funName sp)
+        VPatVar x sp -> pp is_top (VRig x sp)
         VPi x Expl t b -> inParen $ "Pi (" ++ x ++ ":" ++ pp True t ++ "). " ++ pp True (b @ x := VVar x)
         VPi x Impl t b -> inParen $ "Pi {" ++ x ++ ":" ++ pp True t ++ "}. " ++ pp True (b @ x := VVar x)
         VU -> "U"
         where paren x = '(' : x ++ ")"
               inParen x = if is_top then x else paren x
+
+-- For debug
+-- deriving instance Show Value 
+-- instance Show Closure where 
+--   show (Closure _ b) = show b 
 
 instance Show Context where 
   show ctx = "\n- env:" ++ show ctx.env ++ "\n- typ:" ++ show ctx.types ++ "\n- sig:" ++ show ctx.decls
@@ -80,6 +85,8 @@ eval ctx@(env -> env) = \case
   Meta m              -> vMeta m
   ---
   PatVar x            -> case M.lookup x env of 
+    Just (VPatVar y []) 
+      | y /= x -> eval ctx (PatVar y) 
     Just v -> v 
     Nothing 
       | head x == '*' -> VPatVar x []

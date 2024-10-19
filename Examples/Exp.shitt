@@ -1,0 +1,20 @@
+#load "Nat.shitt" 
+#load "Bool.shitt"
+
+data Exp : (_ : U) -> U where 
+| nat : (_ : N) -> ... N
+| bool : (_ : Bool) -> ... Bool 
+| andF : ... (Bool -> Bool -> Bool)
+| notF : ... (Bool -> Bool)
+| addF : ... (N -> N -> N)
+| app : {a b : U} (f : Exp (a -> b)) (arg : Exp a) -> ... b
+
+axiom partial fun sorry {A: U} : A 
+
+fun eval {A: U} (e : Exp A) : A 
+| nat x = x 
+| bool b = b 
+| andF = and
+| notF = not 
+| addF = add 
+| app f x = eval f (eval x)

@@ -1,0 +1,15 @@
+data Bool : U where 
+| true : ... 
+| false : ...
+
+fun not (_ : Bool) : Bool
+| true = false 
+| false = true
+
+fun and (_ _ : Bool) : Bool 
+| true true = true 
+| _ _ = false 
+
+fun or (_ _ : Bool) : Bool 
+| false false = false 
+| _ _ = true

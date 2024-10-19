@@ -73,7 +73,7 @@ unifySp ctx sp sp' = case (sp, sp') of
   _                      -> throwIO UnifyError
 
 unify :: Context -> Value -> Value -> IO () 
-unify ctx (force ctx -> t) (force ctx -> u) = -- trace ("UNIFYING: " ++ show t ++ " WITH " ++ show u) $ 
+unify ctx (refresh ctx -> t) (refresh ctx -> u) = -- trace ("UNIFYING: " ++ show t ++ " WITH " ++ show u) $ 
   case (t, u) of 
   ---
   (VU, VU) -> pure ()
@@ -88,9 +88,9 @@ unify ctx (force ctx -> t) (force ctx -> u) = -- trace ("UNIFYING: " ++ show t +
     unify (ctx <: freeVar x') (t @ x := VVar x') (vApp ctx t' (VVar x') i)
   ---
   (VPi x i a b, VPi x' i' a' b') | i == i' -> do 
-    let y = freshName ctx x 
+    let fre = freshName ctx x 
     unify ctx a a'
-    unify (ctx <: freeVar x') (b @ x := VVar y) (b' @ x' := VVar y)
+    unify (ctx <: freeVar fre) (b @ x := VVar fre) (b' @ x' := VVar fre)
   ---
   (VCon con sp, VCon con' sp') | con == con' -> unifySp ctx sp sp' 
   ---

@@ -1,0 +1,11 @@
+data Id {A : U} : (x y : A) -> U where 
+| refl : (t : A) -> ... t t 
+
+fun sym {A : U} {x y : A} (p : Id x y) : Id y x where 
+| (refl _) = refl _
+
+fun trans {A : U} {x y z : A} (_ : Id x y) (_ : Id y z) : Id x z where 
+| (refl _) (refl _) = refl _ 
+
+fun cong {A B : U} {x y : A} (f : A -> B) (p : Id x y) : Id (f x) (f y) where 
+| f (refl _) = refl _
