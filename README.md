@@ -4,7 +4,7 @@
 
 ShiTT is a shitty language. TT here is the name of a friend of mine, instead of the abbr of type theory.
 
-There is a [implementation note](./Notes/Implementation_Note.md) that I am still writting.
+There is an [implementation note](./Notes/Implementation_Note.md) that I am still writting.
 
 ## Usage
 
