@@ -17,4 +17,4 @@ fun eval {A: U} (e : Exp A) : A
 | andF = and
 | notF = not 
 | addF = add 
-| app f x = eval f (eval x)
+| app f x = traceContext[eval f (eval x)]

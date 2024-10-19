@@ -18,7 +18,7 @@ instance Show Value where
     where
       ppSp [] = ""
       ppSp ((v, Expl):rest) = ' ' : pp False v ++ ppSp rest
-      ppSp ((v, Impl):rest) = " {" ++ pp True v ++ '}' : ppSp rest
+      ppSp ((v, Impl):rest) = "{" ++ pp True v ++ '}' : ppSp rest
       remove_infix = \case
         -- ('-':n) -> n
         n -> n

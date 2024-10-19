@@ -19,7 +19,7 @@ import ShiTT.Eval
 import Data.IORef
 import Control.Category ((>>>))
 import Control.Exception hiding (try)
-import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes, wildcardRef)
+import ShiTT.Meta (allSolved, reset, withoutKRef, allUnmatchableTypes, wildcardRef, patternCounterRef)
 import Data.List (dropWhileEnd)
 import System.IO
 import ShiTT.Termination.Call (MutualSet)
@@ -416,13 +416,13 @@ manyPattern pvs = withPV pvs do
 pPatterns :: Telescope -> Parser ([Pattern], PatVars)
 pPatterns ts = do
   (given_pat, pvs) <- manyPattern []
-  let newPat n = PVar ("-ins" ++ show n) Impl
+  let newPat x n = PVar ("-" ++ x ++ show n) Impl
   let insertUntilName n ts name = case ts of 
         [] -> fail . show $ NoNamedImplicitArg name
         ts@((x, Impl, _):_) | x == name -> pure ([], ts)
-        (_: rest) -> do
+        ((x,_,_): rest) -> do
           (ps, rest') <- insertUntilName (n + 1) rest name
-          pure (newPat n : ps, rest')
+          pure (newPat x n : ps, rest')
 
   let go :: Int -> Telescope -> [(Pattern, Maybe Name)] -> Parser [Pattern]
       go n ts ps = case (ts, ps) of 
@@ -434,7 +434,7 @@ pPatterns ts = do
         
         ((x,Impl,t):ts, ps@((p, Nothing):_)) | icit p == Expl -> do -- Insert Implict Pattern 
           rest <- go (n+1) ts ps 
-          pure $ newPat n : rest
+          pure $ newPat x n : rest
         
         (ts@((x,Impl,t):ts'), ps@((p, Just x'):ps')) -- Named Pattern
           | x == x' -> do 
@@ -446,7 +446,9 @@ pPatterns ts = do
               pure $ pats ++ rest
 
         _ -> fail $ "Unable to parse patterns: " ++ show ts ++ " | " ++ show ps
-  ps <- go 0 ts given_pat
+  n <- liftIO $ readIORef patternCounterRef
+  liftIO $ writeIORef patternCounterRef (n + length ts + 1)
+  ps <- go n ts given_pat
   pure (ps, pvs)
 
 {-
@@ -477,7 +479,8 @@ pRhs = do
 
 pClause :: Telescope -> Parser D.Clause 
 pClause ts = do 
-  (pats, pvs) <- bar >> pPatterns ts
+  (pats, pvs) <- bar >> liftIO (writeIORef patternCounterRef 0) 
+                     >> pPatterns ts
   ctx <- getCtx
   rhs <- withPV pvs pRhs
   pure $ D.Clause

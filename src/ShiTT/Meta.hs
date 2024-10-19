@@ -61,3 +61,6 @@ wildcardRef = runIO $ newIORef 1
 allUnmatchableTypes :: IORef [Name]
 allUnmatchableTypes = runIO $ newIORef []
 
+patternCounterRef :: IORef Int 
+patternCounterRef = runIO $ newIORef 0
+
