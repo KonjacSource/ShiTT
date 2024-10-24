@@ -41,6 +41,7 @@ ghci> run "Eaxmple.shitt"
 
 ## TODO
 
+- [ ] OTT
 - [ ] Operators
 - [ ] Universe polymorphism
 - [ ] Positive checking for data types

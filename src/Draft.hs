@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-module Test where 
+module Draft where 
 -- import ShiTT.Syntax
 -- import ShiTT.Eval
 -- import ShiTT.Context

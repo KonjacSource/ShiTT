@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Common
+      Draft
       ShiTT.Check
       ShiTT.CheckFunction
       ShiTT.Context
@@ -38,7 +39,6 @@ library
       ShiTT.Termination.Check
       ShiTT.Termination.Ord
       ShiTT.TermParser
-      Test
   other-modules:
       Paths_shitt
   autogen-modules:

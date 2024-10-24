@@ -1,3 +1,4 @@
+-- | Parser single term. This is for test.
 module ShiTT.TermParser where 
 
 import Control.Applicative hiding (many, some)
