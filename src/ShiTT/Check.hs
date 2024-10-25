@@ -186,7 +186,7 @@ check ctx t v = {- trace ("checking: " ++ show t ++ " under " ++ show (refresh c
       (\case (Just name) -> i' == Impl && name == x'
              Nothing     -> i' == Impl)
       (i' == Expl)  
-    -> Lam x i' <$> check (ctx <: x :! (a, Source)) t (b @ x := VVar x)
+    -> Lam x i' <$> check (ctx <: x :! (a, Source)) t (b @ x' := VVar x)
   ---
   (t, VPi x Impl a b) -> do 
     let x' = freshName ctx x 
