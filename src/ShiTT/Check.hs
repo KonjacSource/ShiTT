@@ -190,7 +190,7 @@ check ctx t v = {- trace ("checking: " ++ show t ++ " under " ++ show (refresh c
   ---
   (t, VPi x Impl a b) -> do 
     let x' = freshName ctx x 
-    Lam x' Impl <$> check (ctx <: x :! (a, Inserted)) t (b @ x := VVar x')
+    Lam x' Impl <$> check (ctx <: x' :! (a, Inserted)) t (b @ x := VVar x')
   ---
   (RLet x a t u, u') -> do 
     a <- check ctx a VU 
