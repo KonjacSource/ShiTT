@@ -38,10 +38,10 @@ ghci> run "Eaxmple.shitt"
 - [x] Module system (very naive)
 - [x] Mutual recursion
 - [x] Termination checking
+- [x] [OTT](https://github.com/KonjacSource/ShOTT)
 
 ## TODO
 
-- [ ] OTT
 - [ ] Operators
 - [ ] Universe polymorphism
 - [ ] Positive checking for data types

@@ -19,6 +19,9 @@ fun J {A : U} {a : A} (P : (b : A) -> Id a b -> U) (p : P a (refl _)) (b : A) (e
 fun add (m n : N) : N where  
 | zero n = n
 | (succ m) n = succ (add m n)
+| m (succ n) = succ (add m n)
+
+#eval (\ m n . add m (succ n))
 
 data Vec (A : U) : (_ : N) -> U where 
 | nil : ... zero 
