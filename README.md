@@ -30,7 +30,8 @@ ghci> run "Eaxmple.shitt"
 - [x] Type in Type
 - [x] ~~Evaluation by HOAS~~
 - [x] Meta variables and implict arugments (pattern unification)
-- [x] Pattern matching and data type
+- [x] Indexed data types
+- [x] Pattern matching
 - [x] Coverage checking
 - [x] Without K
 - [x] [Syntax Highlight](https://github.com/KonjacSource/shitt-highlight)
@@ -441,3 +442,11 @@ Solving meta variables:
 Termination checking:
 
 - Karl Mehltretter. [Termination Checking for a Dependently Typed Language](https://www.cse.chalmers.se/~abela/mehltret-da.pdf).
+
+Observational Type Theory:
+
+- Thorsten Altenkirch, Conor McBride. [Towards observational type theory, draft (2006)](http://strictlypositive.org/ott.pdf).
+
+- Thorsten Altenkirch, Conor McBride, Wouter Swierstra. Observational Equality, Now!, PLPV ‘07: Proceedings of the 2007 workshop on Programming languages meets program verification (2007) 57-68 [ISBN:978-1-59593-677-6, [doi:10.1145/1292597.1292608](http://doi.org/10.1145/1292597.1292608), [pdf](https://www.cs.nott.ac.uk/~psztxa/publ/obseqnow.pdf)]
+
+- [Guest0x0](https://github.com/Guest0x0), [trebor](https://github.com/Guest0x0/trebor)
