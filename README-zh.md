@@ -1,4 +1,4 @@
-注意. 本项目由于一些不良设计产生了一系列bug, 如今被我认为是无药可救的, 主要原因是求值时的具名表示隐藏了许多bug, 我新开了一个坑 [dependent-pattern-matching](https://github.com/KonjacSource/dependent-pattern-matching) 包含了本项目的核心, 并且目前没有已知的bug. 我最终将完善该项目并迁移至此.
+注意. 本项目由于一些不良设计产生了一系列bug, 如今被我认为是无药可救的, 主要原因是求值时的具名表示隐藏了许多bug, 我新开了一个坑 [dependent-pattern-matching](https://github.com/KonjacSource/dependent-pattern-matching) 及其后继[dependent-pattern-matching-implicit-args](https://github.com/KonjacSource/dependent-pattern-matching-implicit-args)包含了本项目的核心, 并且目前没有已知的bug. 我最终将完善该项目并迁移至此.
 
 # ShiTT(屎TT)
 
