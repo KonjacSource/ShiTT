@@ -1,6 +1,5 @@
-NOTE> The whole project have some unfixible problems (see Issues), most of them are caused by nameful representation. I mean, it would hide many problems. I'm rewriting it using de Bruijn index and level, as in [elaboration-zoo](https://github.com/AndrasKovacs/elaboration-zoo). And here is a partial work [dependent-pattern-matching-implicit-args](https://github.com/KonjacSource/dependent-pattern-matching-implicit-args).
+# Deprecated, Move to [ShiTT2](https://github.com/KonjacSource/ShiTT2)
 
-# ShiTT
 
 [English](./README.md) | [中文](./README-zh.md)
 
